@@ -3,7 +3,7 @@ Gruppo:
 - Cazzola Michele
 - Fabio Leone
 - Forte Filippo
-## Caratteristiche page table
+## Opzioni page table
 1) Per-process page table
 2) Inverted page table
 3) Page table con supporto a dirty bit
