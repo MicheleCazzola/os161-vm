@@ -452,3 +452,5 @@ optfile     syscalls    syscall/proc_syscalls.c
 defoption   synch
 defoption   fork
 defoption   waitpid
+
+defoption   paging
