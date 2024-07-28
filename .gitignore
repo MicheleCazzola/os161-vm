@@ -1,8 +1,0 @@
-# Project configuration
-.vscode
-
-doxygen/
-root/
-toolbuild/
-tools/
-vscode-os161
