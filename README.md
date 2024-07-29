@@ -29,3 +29,23 @@
 
 #### Page table
 IPT + hash
+
+#### Files/directories
+- kern/vm: 
+  1. coremap.c: freeframe list
+  2. pt.c: page table management
+  3. segments.c: segment management
+  4. vm_tlb.c: tlb management
+  5. swapfile.c: swapping management
+  6. vmstats.c: statistics calculator
+  7. addrspace.c: address space management
+- kern/syscall
+  1. loadelf.c: changed to allow On-Demand Page Loading
+- kern/include
+  1. coremap.h
+  2. pt.h
+  3. segments.h
+  4. vm_tlb.h
+  5. swapfile.h
+  6. vmstats.h
+  7. addrspace.h
