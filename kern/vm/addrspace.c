@@ -33,6 +33,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include "opt-paging.h"
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM

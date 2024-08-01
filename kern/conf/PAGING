@@ -40,4 +40,4 @@ options synch       # lab3
 options waitpid     # lab4
 options fork
 
-options paging      # lab5
+options paging      # project
