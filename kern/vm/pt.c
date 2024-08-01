@@ -1,6 +1,6 @@
 /*
  * Authors: Michele Cazzola, Leone Fabio, Filippo Forte
- * Page table handling 
+ * Page table handling module
  */
 
 #include <types.h>

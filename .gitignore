@@ -3,4 +3,5 @@
 
 # Exceptions
 !.gitignore
+!kern/
 !kern/**
