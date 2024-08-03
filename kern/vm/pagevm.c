@@ -6,3 +6,8 @@
 #include <types.h>
 #include <pagevm.h>
 #include "opt-paging.h"
+
+
+void vm_bootstrap(void){
+    
+}
