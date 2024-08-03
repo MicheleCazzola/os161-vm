@@ -16,21 +16,21 @@
 
 #define SWAP_DEBUG 0 /* Does extra operations to ensure swap is zeroed and easy to debug */
 
-static struct spinlock swaplock = SPINLOCK_INITIALIZER;
+//static struct spinlock swaplock = SPINLOCK_INITIALIZER;
 
 /* 
  * Node handle in the file system  for the swapfile
  * (see SWAPFILE_PATH for location).
  * It is opened at the initialization of the VM and used thereon.
  */
-static struct vnode *swapfile;
+//static struct vnode *swapfile;
 
 /*
  * Uses the builtin bitmap structure to represent efficiently which
  * pages in the swapfile have been occupied and which are not 
  * occupied and may be used to swap out.
  */
-static struct bitmap *swapmap;
+//static struct bitmap *swapmap;
 
 /* 
  * Opens SWAPFILE from root directory, fills it with zeroes if
@@ -82,5 +82,5 @@ void swap_free(off_t swap_offset)
  */
 void swap_shutdown(void)
 {
-    
+    return;
 }
