@@ -6,4 +6,4 @@
 #ifndef _VMSTATS_H_
 #define _VMSTATS_H_
 
-#endif
+#endif  /* _VMSTATS_H_ */

@@ -12,4 +12,4 @@ int swap_in(paddr_t page_paddr, off_t swap_offset);
 void swap_free(off_t swap_offset);
 void swap_shutdown(void);
 
-#endif
+#endif /* _SWAPFILE_H_ */

@@ -6,4 +6,4 @@
 #ifndef _PAGEVM_H_
 #define _PAGEVM_H_
 
-#endif
+#endif  /* _PAGEMVM_H_ */
