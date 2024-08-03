@@ -5,22 +5,33 @@
 
 #include <types.h>
 #include <pagevm.h>
+#include <vm.h>
 #include "opt-paging.h"
 
+/* Function prototypes */
+void vm_bootstrap(void);
+void vm_shutdown(void);
+void vm_tlbshootdown(const struct tlbshootdown *ts);
+int vm_fault(int faulttype, vaddr_t faultaddress);
+void pagevm_can_sleep(void);
+//sunsigned int tlb_get_rr_victim(void);
 
-static unsigned int current_victim;
+//static unsigned int current_victim;
 
 
 /* Restituisce il prossimo indice TLB da sostituire utilizzando la politica round-robin.
  * 
  * Returns the next TLB index to replace using round-robin policy.
  */
+
+/*
 static unsigned int tlb_get_rr_victim(void)
 {
     //write here
 
     return 0; 
 }
+*/
 
 void pagevm_can_sleep(void)
 {

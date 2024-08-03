@@ -27,6 +27,8 @@
  * SUCH DAMAGE.
  */
 
+
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -90,17 +92,18 @@ static int isTableActive () {
   return active;
 }
 
+/*
 void
 vm_bootstrap(void)
 {
   int i;
   nRamFrames = ((int)ram_getsize())/PAGE_SIZE;  
-  /* alloc freeRamFrame and allocSize */  
+  //alloc freeRamFrame and allocSize 
   freeRamFrames = kmalloc(sizeof(unsigned char)*nRamFrames);
   if (freeRamFrames==NULL) return;  
   allocSize     = kmalloc(sizeof(unsigned long)*nRamFrames);
   if (allocSize==NULL) {    
-    /* reset to disable this vm management */
+    //reset to disable this vm management 
     freeRamFrames = NULL; return;
   }
   for (i=0; i<nRamFrames; i++) {    
@@ -111,6 +114,7 @@ vm_bootstrap(void)
   allocTableActive = 1;
   spinlock_release(&freemem_lock);
 }
+*/
 
 /*
  * Check if we're in a context that can sleep. While most of the
@@ -230,6 +234,8 @@ free_kpages(vaddr_t addr){
   }
 }
 
+
+/*
 void
 vm_tlbshootdown(const struct tlbshootdown *ts)
 {
@@ -237,6 +243,9 @@ vm_tlbshootdown(const struct tlbshootdown *ts)
 	panic("dumbvm tried to do tlb shootdown?!\n");
 }
 
+*/
+
+/*
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
@@ -253,7 +262,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
-		/* We always create pages read-write, so we can't get this */
+		// We always create pages read-write, so we can't get this 
 		panic("dumbvm: got VM_FAULT_READONLY\n");
 	    case VM_FAULT_READ:
 	    case VM_FAULT_WRITE:
@@ -263,24 +272,24 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	}
 
 	if (curproc == NULL) {
-		/*
-		 * No process. This is probably a kernel fault early
-		 * in boot. Return EFAULT so as to panic instead of
-		 * getting into an infinite faulting loop.
-		 */
+		
+		// No process. This is probably a kernel fault early
+		// in boot. Return EFAULT so as to panic instead of
+		// getting into an infinite faulting loop.
+		 
 		return EFAULT;
 	}
 
 	as = proc_getas();
 	if (as == NULL) {
-		/*
-		 * No address space set up. This is probably also a
-		 * kernel fault early in boot.
-		 */
+		
+		// No address space set up. This is probably also a
+		// kernel fault early in boot.
+		
 		return EFAULT;
 	}
 
-	/* Assert that the address space has been set up properly. */
+	// Assert that the address space has been set up properly. 
 	KASSERT(as->as_vbase1 != 0);
 	KASSERT(as->as_pbase1 != 0);
 	KASSERT(as->as_npages1 != 0);
@@ -314,10 +323,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	/* make sure it's page-aligned */
+	// make sure it's page-aligned 
 	KASSERT((paddr & PAGE_FRAME) == paddr);
 
-	/* Disable interrupts on this CPU while frobbing the TLB. */
+	// Disable interrupts on this CPU while frobbing the TLB.
 	spl = splhigh();
 
 	for (i=0; i<NUM_TLB; i++) {
@@ -337,6 +346,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	splx(spl);
 	return EFAULT;
 }
+*/
 
 struct addrspace *
 as_create(void)
