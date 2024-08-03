@@ -82,5 +82,5 @@ void swap_free(off_t swap_offset)
  */
 void swap_shutdown(void)
 {
-    // No implementation yet
+    
 }
