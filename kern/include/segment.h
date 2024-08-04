@@ -24,19 +24,19 @@ typedef struct  {
     size_t seg_size_words;
     struct vnode *elf_vnode;
     pt_type *page_table;
-} proc_segment_type;
+} ps_type;
 
-proc_segment_type *seg_create(void);
-int seg_define(proc_segment_type *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
+ps_type *seg_create(void);
+int seg_define(ps_type *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
                 size_t num_pages, size_t seg_size_words, struct vnode *elf_vnode, char read, char write, char execute);
-int seg_define_stack(proc_segment_type *proc_seg, vaddr_t base_vaddr, size_t num_pages);
-int seg_prepare(proc_segment_type *proc_seg);
-int seg_copy(proc_segment_type *src, proc_segment_type **dest);
-paddr_t seg_get_paddr(proc_segment_type *proc_seg, vaddr_t vaddr);
-void seg_add_pt_entry(proc_segment_type *proc_seg, vaddr_t vaddr, paddr_t paddr);
-int seg_load_page(proc_segment_type *proc_seg, vaddr_t vaddr, paddr_t paddr);
-void seg_swap_out(proc_segment_type *proc_seg, off_t swapfile_offset, vaddr_t vaddr);
-void seg_swap_in(proc_segment_type *proc_seg, vaddr_t vaddr, paddr_t paddr);
-void seg_destroy(proc_segment_type *proc_seg);
+int seg_define_stack(ps_type *proc_seg, vaddr_t base_vaddr, size_t num_pages);
+int seg_prepare(ps_type *proc_seg);
+int seg_copy(ps_type *src, ps_type **dest);
+paddr_t seg_get_paddr(ps_type *proc_seg, vaddr_t vaddr);
+void seg_add_pt_entry(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr);
+int seg_load_page(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr);
+void seg_swap_out(ps_type *proc_seg, off_t swapfile_offset, vaddr_t vaddr);
+void seg_swap_in(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr);
+void seg_destroy(ps_type *proc_seg);
 
 #endif  /* _SEGMENT_H_ */
