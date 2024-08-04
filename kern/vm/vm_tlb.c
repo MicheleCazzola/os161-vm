@@ -15,7 +15,7 @@ static unsigned int current_victim;
  * Invalidates all TLB entries
  */
 static void vm_tlb_invalidate_entries() {
-    int i;
+    unsigned long i;
 
     for(i = 0; i < NUM_TLB; i++) {
         tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
