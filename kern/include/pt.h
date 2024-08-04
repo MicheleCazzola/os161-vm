@@ -22,17 +22,17 @@
 typedef struct {
     unsigned long num_pages;
     vaddr_t base_vaddr;
-    paddr_t *pageBuffer;
-} page_table_type;
+    paddr_t *page_buffer;
+} pt_type;
 
-page_table_type *pt_create(unsigned long num_pages, vaddr_t base_address);
-int pt_copy(page_table_type *src, page_table_type **dest);
-paddr_t pt_get_entry(page_table_type *pt, vaddr_t vaddr);
-void pt_add_entry(page_table_type *pt, vaddr_t vaddr, paddr_t paddr);
-void pt_clear_content(page_table_type *pt);
-void pt_swap_out(page_table_type *pt, off_t swapfile_offset, vaddr_t vaddr);
-void pt_swap_in(page_table_type *pt, vaddr_t vaddr, paddr_t paddr);
-off_t pt_get_swap_offset(page_table_type *pt, vaddr_t vaddr);
-void pt_destroy(page_table_type *pt);
+pt_type *pt_create(unsigned long num_pages, vaddr_t base_address);
+int pt_copy(pt_type *src, pt_type **dest);
+paddr_t pt_get_entry(pt_type *pt, vaddr_t vaddr);
+void pt_add_entry(pt_type *pt, vaddr_t vaddr, paddr_t paddr);
+void pt_clear_content(pt_type *pt);
+void pt_swap_out(pt_type *pt, off_t swapfile_offset, vaddr_t vaddr);
+void pt_swap_in(pt_type *pt, vaddr_t vaddr, paddr_t paddr);
+off_t pt_get_swap_offset(pt_type *pt, vaddr_t vaddr);
+void pt_destroy(pt_type *pt);
 
 #endif  /* _PT_H_ */

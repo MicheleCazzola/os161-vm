@@ -23,7 +23,7 @@ typedef struct  {
     size_t num_pages;
     size_t seg_size_words;
     struct vnode *elf_vnode;
-    page_table_type *page_table;
+    pt_type *page_table;
 } proc_segment_type;
 
 proc_segment_type *seg_create(void);
