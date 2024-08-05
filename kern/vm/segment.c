@@ -5,6 +5,8 @@
 
 #include <types.h>
 #include <lib.h>
+#include <vm.h>
+#include <kern/errno.h>
 #include <segment.h>
 #include "opt-paging.h"
 
@@ -39,43 +41,143 @@ ps_t *seg_create(void) {
     return proc_segment;
 }
 
+/**
+ * Defines the values of all the fields of a given segments
+ * Not used for stack, which has special values
+ */
 int seg_define(ps_t *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
-                size_t num_pages, size_t seg_size_words, struct vnode *elf_vnode, char read, char write, char execute){
+                size_t num_pages, size_t seg_size_words, struct vnode *elf_vnode, char read, char write, char execute) {
+    
+    KASSERT(read);  /* Read operation should be always allowed */
+    KASSERT(proc_seg != NULL);
+    KASSERT(proc_seg->elf_vnode != NULL);
+    KASSERT(proc_seg->page_table != NULL);
+    
+    if (write) {
+        proc_seg->permissions = PAGE_RW;
+    }
+    else if (execute) {
+        proc_seg->permissions = PAGE_EXE;
+    }
+    else {
+        proc_seg->permissions = PAGE_RONLY;
+    }
 
-    (void)proc_seg;
-    (void)seg_size_bytes;
-    (void)file_offset;
-    (void)base_vaddr;
-    (void)num_pages;
-    (void)seg_size_words;
-    (void)elf_vnode;
-    (void)read;
-    (void)write;
-    (void)execute;
+    proc_seg->seg_size_bytes = seg_size_bytes;
+    proc_seg->file_offset = file_offset;
+    proc_seg->base_vaddr = base_vaddr;
+    proc_seg->num_pages = num_pages;
+    proc_seg->seg_size_words = seg_size_words;
+    proc_seg->elf_vnode = elf_vnode;
 
     return 0;
 }
 
-int seg_define_stack(ps_t *proc_seg, vaddr_t base_vaddr, size_t num_pages){
-    
-    (void)proc_seg;
-    (void)base_vaddr;
-    (void)num_pages;
+/**
+ * Defines the values of all the fields for a stack segment
+ */
+int seg_define_stack(ps_t *proc_seg, vaddr_t base_vaddr, size_t num_pages) {
+
+    pt_t *page_table;
+
+    KASSERT(proc_seg != NULL);
+    KASSERT(proc_seg->elf_vnode != NULL);
+    KASSERT(proc_seg->page_table != NULL);
+    KASSERT(num_pages > 0);     /* Stack cannot have 0 pages */
+
+    proc_seg->permissions = PAGE_STACK;
+    proc_seg->seg_size_bytes = 0;
+    proc_seg->file_offset = 0;
+    proc_seg->base_vaddr = base_vaddr;
+    proc_seg->num_pages = num_pages;
+    proc_seg->seg_size_words = num_pages * PAGE_SIZE;
+    proc_seg->elf_vnode = NULL;     /* Not necessary since there are no stack pages to load from disk */
+
+    /**
+     * For stack, seg_prepare is not invoked -> Page table initialization is done here
+     */
+    page_table = pt_create(proc_seg->num_pages, proc_seg->base_vaddr);
+
+    if (page_table == NULL) {
+        return ENOMEM;
+    }
+
+    proc_seg->page_table = page_table;
 
     return 0;
 }
 
-int seg_prepare(ps_t *proc_seg){
-    
-    (void)proc_seg;
+/**
+ * Segment preparation, that is page table creation
+ * Invoked only for text and data segments, not for stack
+ */
+int seg_prepare(ps_t *proc_seg) {
+
+    pt_t *page_table;
+
+    /**
+     * Page table initialization for segment
+     * Invoked only for text and data segments
+     */
+    page_table = pt_create(proc_seg->num_pages, proc_seg->base_vaddr);
+
+    if (page_table == NULL) {
+        return ENOMEM;
+    }
+
+    proc_seg->page_table = page_table;
 
     return 0;
 }
 
-int seg_copy(ps_t *src, ps_t **dest){
+/**
+ * Copies a given segment into another one, which is newly created here
+ */
+int seg_copy(ps_t *src, ps_t **dest) {
+
+    ps_t *new_seg;
+    int seg_define_result;
+
+    KASSERT(dest != NULL);
+    KASSERT(src != NULL);
+    KASSERT(src->page_table != NULL);
+    KASSERT(src->permissions == PAGE_STACK || src->elf_vnode != NULL);  /* vnode pointer NULL is allowed only for stack */
+
+    /**
+     * Segment creation
+     */
+    new_seg = seg_create();
+
+    if (new_seg == NULL) {
+        return ENOMEM;
+    }
+
+    /**
+     * Segment definition: discrimination between stack and other segments
+     */
+    if (src->permissions != PAGE_STACK) {
+        seg_define_result = seg_define(
+            new_seg, src->seg_size_bytes, src->file_offset, src->base_vaddr, src->num_pages, src->seg_size_words, 
+            src->elf_vnode, 1, src->permissions == PAGE_RW ? 1 : 0, src->permissions == PAGE_EXE ? 1 : 0
+        );
+    }
+    else {
+        seg_define_result = seg_define_stack(new_seg, src->base_vaddr, src->num_pages);
+    }
+
+    if (seg_define_result) {
+        return ENOMEM;
+    }
+
+    /**
+     * Segment preparation (page table creation) for text and data segment
+     * Similar to the pattern used in address space definition and preparation
+     */
+    if (src->permissions != PAGE_STACK) {
+        seg_prepare(new_seg);
+    }
     
-    (void)src;
-    (void)dest;
+    *dest = new_seg;
 
     return 0;
 }
@@ -140,6 +242,4 @@ void seg_destroy(ps_t *proc_seg){
     }
 
     kfree(proc_seg);
-
-    return;
 }
