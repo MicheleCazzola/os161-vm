@@ -8,16 +8,25 @@
 #include <segment.h>
 #include "opt-paging.h"
 
-ps_type *seg_create(void) {
+/**
+ * Creates a new segment, with zeroed fields
+ */
+ps_t *seg_create(void) {
 
-    ps_type *proc_segment;
+    ps_t *proc_segment;
 
-    proc_segment = (ps_type *)kmalloc(sizeof(ps_type));
+    /**
+     * Memory allocation
+     */
+    proc_segment = (ps_t *)kmalloc(sizeof(ps_t));
 
     if (proc_segment == NULL) {
-        return (ps_type *)NULL;
+        return (ps_t *)NULL;
     }
 
+    /**
+     * Zeroing of all fields
+     */
     proc_segment->permissions = 0;
     proc_segment->seg_size_bytes = 0;
     proc_segment->file_offset = 0;
@@ -30,7 +39,7 @@ ps_type *seg_create(void) {
     return proc_segment;
 }
 
-int seg_define(ps_type *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
+int seg_define(ps_t *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
                 size_t num_pages, size_t seg_size_words, struct vnode *elf_vnode, char read, char write, char execute){
 
     (void)proc_seg;
@@ -47,7 +56,7 @@ int seg_define(ps_type *proc_seg, size_t seg_size_bytes, off_t file_offset, vadd
     return 0;
 }
 
-int seg_define_stack(ps_type *proc_seg, vaddr_t base_vaddr, size_t num_pages){
+int seg_define_stack(ps_t *proc_seg, vaddr_t base_vaddr, size_t num_pages){
     
     (void)proc_seg;
     (void)base_vaddr;
@@ -56,14 +65,14 @@ int seg_define_stack(ps_type *proc_seg, vaddr_t base_vaddr, size_t num_pages){
     return 0;
 }
 
-int seg_prepare(ps_type *proc_seg){
+int seg_prepare(ps_t *proc_seg){
     
     (void)proc_seg;
 
     return 0;
 }
 
-int seg_copy(ps_type *src, ps_type **dest){
+int seg_copy(ps_t *src, ps_t **dest){
     
     (void)src;
     (void)dest;
@@ -71,7 +80,7 @@ int seg_copy(ps_type *src, ps_type **dest){
     return 0;
 }
 
-paddr_t seg_get_paddr(ps_type *proc_seg, vaddr_t vaddr){
+paddr_t seg_get_paddr(ps_t *proc_seg, vaddr_t vaddr){
 
     (void)proc_seg;
     (void)vaddr;
@@ -79,7 +88,7 @@ paddr_t seg_get_paddr(ps_type *proc_seg, vaddr_t vaddr){
     return (paddr_t)0;
 }
 
-void seg_add_pt_entry(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr){
+void seg_add_pt_entry(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
 
     (void)proc_seg;
     (void)vaddr;
@@ -88,7 +97,7 @@ void seg_add_pt_entry(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr){
     return;
 }
 
-int seg_load_page(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr){
+int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
 
     (void)proc_seg;
     (void)vaddr;
@@ -97,7 +106,7 @@ int seg_load_page(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr){
     return 0;
 }
 
-void seg_swap_out(ps_type *proc_seg, off_t swapfile_offset, vaddr_t vaddr){
+void seg_swap_out(ps_t *proc_seg, off_t swapfile_offset, vaddr_t vaddr){
 
     (void)proc_seg;
     (void)swapfile_offset;
@@ -106,7 +115,7 @@ void seg_swap_out(ps_type *proc_seg, off_t swapfile_offset, vaddr_t vaddr){
     return;
 }
 
-void seg_swap_in(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr){
+void seg_swap_in(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
 
     (void)proc_seg;
     (void)vaddr;
@@ -115,10 +124,16 @@ void seg_swap_in(ps_type *proc_seg, vaddr_t vaddr, paddr_t paddr){
     return;
 }
 
-void seg_destroy(ps_type *proc_seg){
+/**
+ * Destroys segment, freeing all associated memory resources
+ */
+void seg_destroy(ps_t *proc_seg){
 
     KASSERT(proc_seg != NULL);
 
+    /**
+     * Page table clearing and destruction
+     */
     if (proc_seg->page_table != NULL) {
         pt_clear_content(proc_seg->page_table);
         pt_destroy(proc_seg->page_table);

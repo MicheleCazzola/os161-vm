@@ -23,16 +23,16 @@ typedef struct {
     unsigned long num_pages;
     vaddr_t base_vaddr;
     paddr_t *page_buffer;
-} pt_type;
+} pt_t;
 
-pt_type *pt_create(unsigned long num_pages, vaddr_t base_address);
-int pt_copy(pt_type *src, pt_type **dest);
-paddr_t pt_get_entry(pt_type *pt, vaddr_t vaddr);
-void pt_add_entry(pt_type *pt, vaddr_t vaddr, paddr_t paddr);
-void pt_clear_content(pt_type *pt);
-void pt_swap_out(pt_type *pt, off_t swapfile_offset, vaddr_t vaddr);
-void pt_swap_in(pt_type *pt, vaddr_t vaddr, paddr_t paddr);
-off_t pt_get_swap_offset(pt_type *pt, vaddr_t vaddr);
-void pt_destroy(pt_type *pt);
+pt_t *pt_create(unsigned long num_pages, vaddr_t base_address);
+int pt_copy(pt_t *src, pt_t **dest);
+paddr_t pt_get_entry(pt_t *pt, vaddr_t vaddr);
+void pt_add_entry(pt_t *pt, vaddr_t vaddr, paddr_t paddr);
+void pt_clear_content(pt_t *pt);
+void pt_swap_out(pt_t *pt, off_t swapfile_offset, vaddr_t vaddr);
+void pt_swap_in(pt_t *pt, vaddr_t vaddr, paddr_t paddr);
+off_t pt_get_swap_offset(pt_t *pt, vaddr_t vaddr);
+void pt_destroy(pt_t *pt);
 
 #endif  /* _PT_H_ */

@@ -9,6 +9,9 @@
 #include <vm_tlb.h>
 #include "opt-paging.h"
 
+/**
+ * Current victim to be replaced in TLB
+ */
 static unsigned int current_victim;
 
 /**
@@ -61,8 +64,8 @@ uint64_t vm_tlb_peek_victim() {
 
     tlb_read(&entry_hi, &entry_lo, current_victim);
 
-    victim_content = (victim_content & entry_hi) << 32;
-    victim_content &= entry_lo;
+    victim_content = (victim_content | entry_hi) << 32;
+    victim_content |= entry_lo;
 
     return victim_content;
 }
@@ -76,7 +79,7 @@ void vm_tlb_write(vaddr_t vaddr, paddr_t paddr,/* unsigned char dirty,*/ unsigne
     uint32_t entry_hi, entry_lo;
 
     entry_hi = vaddr & PAGE_FRAME;
-    entry_lo = (paddr & TLBLO_VALID);
+    entry_lo = paddr | TLBLO_VALID;
 
     /*
     if (dirty) {

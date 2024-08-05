@@ -12,7 +12,7 @@
 /**
  * Performs page buffer copy from a page table to another
  */
-static void pt_page_buffer_copy(pt_type *src, pt_type *dest) {
+static void pt_page_buffer_copy(pt_t *src, pt_t *dest) {
     unsigned long i;
 
     for(i = 0; i < src->num_pages; i++) {
@@ -23,19 +23,19 @@ static void pt_page_buffer_copy(pt_type *src, pt_type *dest) {
 /**
  * Creates a new page table and initializes all its entries to empty
  */
-pt_type *pt_create(unsigned long num_pages, vaddr_t base_address) {
+pt_t *pt_create(unsigned long num_pages, vaddr_t base_address) {
 
     unsigned long i;
-    pt_type *page_table;
+    pt_t *page_table;
     paddr_t *page_buffer;
 
     /**
      * Page table allocation
      */
-    page_table = (pt_type *)kmalloc(sizeof(pt_type));
+    page_table = (pt_t *)kmalloc(sizeof(pt_t));
 
     if (page_table == NULL) {
-        return (pt_type *)NULL;
+        return (pt_t *)NULL;
     }
 
     page_table->num_pages = num_pages;
@@ -47,7 +47,7 @@ pt_type *pt_create(unsigned long num_pages, vaddr_t base_address) {
     page_buffer = (paddr_t *)kmalloc(sizeof(paddr_t) * num_pages);
 
     if (page_buffer == NULL) {
-        return (pt_type *)NULL;
+        return (pt_t *)NULL;
     }
 
     page_table->page_buffer = page_buffer;
@@ -65,9 +65,9 @@ pt_type *pt_create(unsigned long num_pages, vaddr_t base_address) {
 /**
  * Copies a page table into another one
  */
-int pt_copy(pt_type *src, pt_type **dest){
+int pt_copy(pt_t *src, pt_t **dest){
 
-    pt_type *new_page_table;
+    pt_t *new_page_table;
 
     KASSERT(src != NULL);
 
@@ -97,7 +97,7 @@ int pt_copy(pt_type *src, pt_type **dest){
     return 0;
 }
 
-paddr_t pt_get_entry(pt_type *pt, vaddr_t vaddr){
+paddr_t pt_get_entry(pt_t *pt, vaddr_t vaddr){
 
     (void)pt;
     (void)vaddr;
@@ -105,33 +105,33 @@ paddr_t pt_get_entry(pt_type *pt, vaddr_t vaddr){
     return (paddr_t)0;
 }
 
-void pt_add_entry(pt_type *pt, vaddr_t vaddr, paddr_t paddr){
+void pt_add_entry(pt_t *pt, vaddr_t vaddr, paddr_t paddr){
 
     (void)pt;
     (void)vaddr;
     (void)paddr;
 }
 
-void pt_clear_content(pt_type *pt) {
+void pt_clear_content(pt_t *pt) {
 
     (void)pt;
 }
 
-void pt_swap_out(pt_type *pt, off_t swapfile_offset, vaddr_t vaddr){
+void pt_swap_out(pt_t *pt, off_t swapfile_offset, vaddr_t vaddr){
 
     (void)pt;
     (void)swapfile_offset;
     (void)vaddr;
 }
 
-void pt_swap_in(pt_type *pt, vaddr_t vaddr, paddr_t paddr){
+void pt_swap_in(pt_t *pt, vaddr_t vaddr, paddr_t paddr){
 
     (void)pt;
     (void)vaddr;
     (void)paddr;
 }
 
-off_t pt_get_swap_offset(pt_type *pt, vaddr_t vaddr){
+off_t pt_get_swap_offset(pt_t *pt, vaddr_t vaddr){
 
     (void)pt;
     (void)vaddr;
@@ -139,7 +139,7 @@ off_t pt_get_swap_offset(pt_type *pt, vaddr_t vaddr){
     return (off_t)0;
 }
 
-void pt_destroy(pt_type *pt) {
+void pt_destroy(pt_t *pt) {
 
     KASSERT(pt != NULL);
     KASSERT(pt->page_buffer != NULL);
