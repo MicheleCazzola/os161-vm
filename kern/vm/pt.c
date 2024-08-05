@@ -6,6 +6,9 @@
 #include <types.h>
 #include <lib.h>
 #include <kern/errno.h>
+#include <vm.h>
+#include <swapfile.h>
+#include <coremap.h>
 #include <pt.h>
 #include "opt-paging.h"
 
@@ -19,6 +22,29 @@ static void pt_page_buffer_copy(pt_t *src, pt_t *dest) {
         dest->page_buffer[i] = src->page_buffer[i];
     }
 }
+
+/**
+ * Retrieves entry index, given virtual address
+ */
+static unsigned long pt_get_entry_index(pt_t *pt, vaddr_t vaddr) {
+
+    vaddr_t page_vaddr;
+    unsigned long index;
+
+    /**
+     * Given virtual address, its page is loaded at entry position
+     * in page aligned way, so that each entry is stored in a specific page
+     * and conversion from page virtual address to page table index is easy
+     */
+    page_vaddr = vaddr & PAGE_FRAME;
+    index = (page_vaddr - pt->base_vaddr) / PAGE_SIZE;
+
+    /* Boundary check for computed index */
+    KASSERT(index < pt->num_pages);
+
+    return index;
+}
+
 
 /**
  * Creates a new page table and initializes all its entries to empty
@@ -70,6 +96,7 @@ int pt_copy(pt_t *src, pt_t **dest){
     pt_t *new_page_table;
 
     KASSERT(src != NULL);
+    KASSERT(dest != NULL);
 
     /**
      * New page table creation and initialization to empty
@@ -87,58 +114,148 @@ int pt_copy(pt_t *src, pt_t **dest){
     new_page_table->base_vaddr = src->base_vaddr;
     pt_page_buffer_copy(new_page_table, src);
 
-    if (dest != NULL) {
-        *dest = new_page_table;
-    }
-    else {  /* Caller invokes pt_copy with NULL destination address */
-        return EINVAL;
-    }
+    *dest = new_page_table;
 
     return 0;
 }
 
-paddr_t pt_get_entry(pt_t *pt, vaddr_t vaddr){
+/**
+ * Retrieves physical address from virtual address
+ */
+paddr_t pt_get_entry(pt_t *pt, vaddr_t vaddr) {
 
-    (void)pt;
-    (void)vaddr;
+    unsigned long index;
+    paddr_t page_paddr;
 
-    return (paddr_t)0;
+    KASSERT(pt != NULL);
+    KASSERT(pt->page_buffer != NULL);
+
+    index = pt_get_entry_index(pt, vaddr);
+
+    /**
+     * Entry is not already populated
+     */
+    if (pt->page_buffer[index] == PT_EMPTY_ENTRY) {
+        page_paddr = PT_EMPTY_ENTRY;
+    }
+    /**
+     * Entry has been already populated, but its page is currently swapped
+     */
+    else if ((pt->page_buffer[index] & PT_SWAPPED_MASK) == PT_SWAPPED_ENTRY) {
+        page_paddr = PT_SWAPPED_ENTRY;
+    }
+    /**
+     * Entry has been already populated, and its page is currently in memory
+     */
+    else {
+        page_paddr = pt->page_buffer[index];
+    }
+
+    return page_paddr;
 }
 
-void pt_add_entry(pt_t *pt, vaddr_t vaddr, paddr_t paddr){
+/**
+ * Inserts a new entry (virtual page address, physical address) into page table
+ */
+void pt_add_entry(pt_t *pt, vaddr_t vaddr, paddr_t paddr) {
 
-    (void)pt;
-    (void)vaddr;
-    (void)paddr;
+    unsigned long index;
+
+    KASSERT(pt != NULL);
+    KASSERT(pt->page_buffer != NULL);
+
+    index = pt_get_entry_index(pt, vaddr);
+
+    /**
+     * Content check: entry cannot be already populated with physical page in memory
+     */
+    KASSERT(pt->page_buffer[index] == PT_EMPTY_ENTRY || (pt->page_buffer[index] & PT_SWAPPED_MASK) == PT_SWAPPED_ENTRY);
+
+    pt->page_buffer[index] = paddr;
 }
 
+/**
+ * Clears the content of page table, basing on the content of each entry
+ */
 void pt_clear_content(pt_t *pt) {
 
-    (void)pt;
+    unsigned long i;
+
+    KASSERT(pt != NULL);
+
+    for(i = 0; i < pt->num_pages; i++) {
+        /**
+         * Swapped page: cleared from swapfile
+         */
+        if((pt->page_buffer[i] & PT_SWAPPED_MASK) == PT_SWAPPED_ENTRY) {
+            swap_free(pt->page_buffer[i] & (~PT_SWAPPED_MASK));
+        }
+        /**
+         * Page stored in memory: memory is freed
+         */
+        else if(pt->page_buffer[i] != PT_EMPTY_ENTRY) {
+            free_upage(pt->page_buffer[i]);
+        }
+    }
 }
 
-void pt_swap_out(pt_t *pt, off_t swapfile_offset, vaddr_t vaddr){
+/**
+ * Marks as swapped the entry of the page corresponding to the given
+ * virtual address, and saves the swapfile offset of the page in its entry
+ */
+void pt_swap_out(pt_t *pt, off_t swapfile_offset, vaddr_t vaddr) {
 
-    (void)pt;
-    (void)swapfile_offset;
-    (void)vaddr;
+    unsigned long index;
+    
+    KASSERT(pt != NULL);
+    KASSERT(pt->page_buffer != NULL);
+
+    index = pt_get_entry_index(pt, vaddr);
+
+    /**
+     * Content check: entry to swap out must be already populated
+     * and with its page stored in memory
+     */
+    KASSERT(pt->page_buffer[index] != PT_EMPTY_ENTRY);
+    KASSERT((pt->page_buffer[index] & PT_SWAPPED_MASK) != PT_SWAPPED_ENTRY);
+
+    pt->page_buffer[index] = swapfile_offset | PT_SWAPPED_MASK;
 }
 
-void pt_swap_in(pt_t *pt, vaddr_t vaddr, paddr_t paddr){
-
-    (void)pt;
-    (void)vaddr;
-    (void)paddr;
+/**
+ * Dual of pt_swap_out, it is a wrapper of pt_add_entry
+ */
+void pt_swap_in(pt_t *pt, vaddr_t vaddr, paddr_t paddr) {
+    pt_add_entry(pt, vaddr, paddr);
 }
 
-off_t pt_get_swap_offset(pt_t *pt, vaddr_t vaddr){
+/**
+ * Retrieves swapfile offset from the entry corresponding to the given
+ * virtual address
+ */
+off_t pt_get_swap_offset(pt_t *pt, vaddr_t vaddr) {
 
-    (void)pt;
-    (void)vaddr;
+    unsigned long index;
+    off_t swapfile_offset;
 
-    return (off_t)0;
+    KASSERT(pt != NULL);
+    KASSERT(pt->page_buffer != NULL);
+
+    index = pt_get_entry_index(pt, vaddr);
+
+    /**
+     * Content check: entry must correspond to a swapped page
+     */
+    KASSERT((pt->page_buffer[index] & PT_SWAPPED_MASK) == PT_SWAPPED_ENTRY);
+
+    swapfile_offset = pt->page_buffer[index] & (~PT_SWAPPED_MASK);
+
+    return swapfile_offset;
 }
 
+/**
+ * Destroys the given page table, freeing all memory resources
+ */
 void pt_destroy(pt_t *pt) {
 
     KASSERT(pt != NULL);
