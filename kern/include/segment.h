@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Michele Cazzola - 2024
  * Segments handling, used to distinguish among code, data, stack
  */
 
@@ -44,30 +44,31 @@ typedef struct  {
 /**
  * Functions description
  * 
- * SEG_create: creates a new segment, with zeroed values
+ * SEG_create: creates a new segment, with zeroed values.
  * 
  * SEG_define: fills all the fields of a newly created segment with proper values.
- * Used only for text and data segment, not stack
+ * Used only for text and data segment, not stack.
  * 
  * SEG_define_stack: same as segment definition, but with special values for stack
- * It includes the functionalities implemented in segment preparation
+ * It includes the functionalities implemented in segment preparation.
  * 
  * SEG_prepare: creates and initializes page table for a segment. Used only for text
- * and data segment, not stack, after segment definition
+ * and data segment, not stack, after segment definition.
  * 
- * SEG_copy: copies a given segment into another one, which is created inside
+ * SEG_copy: copies a given segment into another one, which is created inside.
  * 
- * SEG_get_paddr:
+ * SEG_get_paddr: wrapper for pt_get_entry, except for some checks. 
  * 
- * SEG_add_pt_entry:
+ * SEG_add_pt_entry: wrapper for pt_add_entry, except for some checks.
  * 
  * SEG_load_page:
  * 
- * SEG_swap_out:
+ * SEG_swap_out: wrapper for pt_swap_out, except for some checks.
  * 
- * SEG_swap_in:
+ * SEG_swap_in: performs both actual and page-table layer swap in, after having computed the
+ * page offset in the swapfile.
  * 
- * SEG_destroy: destroys the segment, freeing all memory resources
+ * SEG_destroy: destroys the segment, freeing all memory resources.
  * 
  */
 

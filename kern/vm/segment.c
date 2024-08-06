@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Michele Cazzola - 2024
  * Segments handling, used to distinguish among code, data, stack
  */
 
@@ -7,8 +7,8 @@
 #include <lib.h>
 #include <vm.h>
 #include <kern/errno.h>
+#include <swapfile.h>
 #include <segment.h>
-#include "opt-paging.h"
 
 /**
  * Creates a new segment, with zeroed fields
@@ -182,21 +182,32 @@ int seg_copy(ps_t *src, ps_t **dest) {
     return 0;
 }
 
-paddr_t seg_get_paddr(ps_t *proc_seg, vaddr_t vaddr){
+/**
+ * Retrieves physical address of the page to which the given virtual address belongs
+ * Sort of wrapper for pt_get_entry, except for some checks
+ */
+paddr_t seg_get_paddr(ps_t *proc_seg, vaddr_t vaddr) {
 
-    (void)proc_seg;
-    (void)vaddr;
+    paddr_t paddr;
 
-    return (paddr_t)0;
+    KASSERT(proc_seg != NULL);
+    KASSERT(proc_seg->page_table != NULL);
+
+    paddr = pt_get_entry(proc_seg->page_table, vaddr);
+
+    return paddr;
 }
 
-void seg_add_pt_entry(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
+/**
+ * Inserts a new entry (page virtual address, physical address) to page table.
+ * Sort of wrapper for pt_add_entry, except for some checks
+ */
+void seg_add_pt_entry(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
 
-    (void)proc_seg;
-    (void)vaddr;
-    (void)paddr;
+    KASSERT(proc_seg != NULL);
+    KASSERT(proc_seg->page_table != NULL);
 
-    return;
+    pt_add_entry(proc_seg->page_table, vaddr, paddr);
 }
 
 int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
@@ -208,22 +219,40 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
     return 0;
 }
 
-void seg_swap_out(ps_t *proc_seg, off_t swapfile_offset, vaddr_t vaddr){
+/**
+ * Wrapper for pt_swap_out, except for some checks.
+ */
+void seg_swap_out(ps_t *proc_seg, off_t swapfile_offset, vaddr_t vaddr) {
 
-    (void)proc_seg;
-    (void)swapfile_offset;
-    (void)vaddr;
+    KASSERT(proc_seg != NULL);
+    KASSERT(proc_seg->page_table != NULL);
 
-    return;
+    pt_swap_out(proc_seg->page_table, swapfile_offset, vaddr);
 }
 
+/**
+ * Performs swap in of the page corresponding to the given virtual address, known
+ * the physical address where to store it. This operation is performed both at
+ * swapfile and at page table layer.
+ */
 void seg_swap_in(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
 
-    (void)proc_seg;
-    (void)vaddr;
-    (void)paddr;
+    off_t swapfile_offset;
 
-    return;
+    /**
+     * Computes swapfile offset of the page of the given virtual address
+     */
+    swapfile_offset = pt_get_swap_offset(proc_seg->page_table, vaddr);
+
+    /**
+     * Performs actual page swap in
+     */
+    swap_in(paddr, swapfile_offset);
+
+    /**
+     * Marks as stored in memory the swapped-in page, together with its physical address
+     */
+    pt_swap_in(proc_seg->page_table, vaddr, paddr);
 }
 
 /**
