@@ -1,5 +1,5 @@
 /*
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte
+ * Authors: Michele Cazzola - 2024
  * Page table handling module
  */
 
@@ -10,7 +10,6 @@
 #include <swapfile.h>
 #include <coremap.h>
 #include <pt.h>
-#include "opt-paging.h"
 
 /**
  * Performs page buffer copy from a page table to another

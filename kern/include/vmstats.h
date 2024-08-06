@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Michele Cazzola, - 2024
  * Statistics registration for memory handling
  */
 
@@ -11,12 +11,13 @@
 /**
  * Functions description
  * 
- * VMSTATS_init: initializes statistics to 0. Invoked at bootstrap
+ * VMSTATS_init: initializes statistics to 0. Invoked at bootstrap.
  * 
- * VMSTATS_increment: increments by one the statistic specified
+ * VMSTATS_increment: increments by one the statistic specified.
  * 
  * VMSTATS_show: shows (by printing on stdout) the statistics collected.
- * Invoked at shutdown
+ * Invoked at shutdown.
+ * 
  */
 
 void vmstats_init(void);

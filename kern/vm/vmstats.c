@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Michele Cazzola - 2024
  * Statistics registration for memory handling
  */
 #include <types.h>
@@ -7,7 +7,6 @@
 #include <synch.h>
 #include <lib.h>
 #include <vmstats.h>
-#include "opt-paging.h"
 
 bool vmstats_active = false;
 struct spinlock vmstats_lock;
@@ -66,6 +65,28 @@ void vmstats_increment(unsigned int stat_index) {
     spinlock_release(&vmstats_lock);
 }
 
+/**
+ * Shows all collected statistics, by printing them on the standard output.
+ * Provides warning messages if statistics constraints are not respected.
+ * Invoked at shutdown of virtual memory manager (on system shutdown)
+ */
 void vmstats_show() {
-    (void)vmstats_names;
+    unsigned long i;
+
+    kprintf("--Virtual memory statistics--");
+    for(i = 0; i < VMSTATS_NUM; i++) {
+        kprintf("%s: %d", vmstats_names[i], vmstats_counts[i]);
+    }
+
+    if(vmstats_counts[0] != (vmstats_counts[1] + vmstats_counts[2])) {
+        kprintf("Warning: sum of TLB faults with free and with replace not equal to number of TLB faults");
+    }
+
+    if(vmstats_counts[0] != (vmstats_counts[3] + vmstats_counts[5] + vmstats_counts[6])) {
+        kprintf("Warning: sum of TLB reloads, zeroed-page faults and page faults from disk not equal to number of TLB faults");
+    }
+
+    if(vmstats_counts[6] != (vmstats_counts[7] + vmstats_counts[8])) {
+        kprintf("Warning: sum of page faults from ELF and from swapfile not equal to number of page faults from disk");
+    }
 }

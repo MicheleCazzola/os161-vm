@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte
+ * Authors: Michele Cazzola, Filippo Forte - 2024
  * TLB high-level handling, including replacement policy
  */
 
@@ -7,7 +7,6 @@
 #include <vm.h>
 #include <mips/tlb.h>
 #include <vm_tlb.h>
-#include "opt-paging.h"
 
 /**
  * Current victim to be replaced in TLB

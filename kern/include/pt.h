@@ -1,5 +1,5 @@
 /*
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte
+ * Authors: Michele Cazzola - 2024
  * Page table handling 
  */
 
@@ -36,27 +36,27 @@ typedef struct {
 /**
  * Functions description
  * 
- * PT_create: creates and initializes a new page table
+ * PT_create: creates and initializes a new page table.
  * 
- * PT_copy: copies the content of a given page table into a newly created one
+ * PT_copy: copies the content of a given page table into a newly created one.
  * 
  * PT_get_entry: retrieves the phyisical address of the page to which the given
- * virtual address belongs
+ * virtual address belongs.
  * 
  * PT_add_entry: inserts a new entry corresponding to a binding between virtual
- * and physical address given
+ * and physical address given.
  * 
  * PT_clear_content: clears the content of the page table, including side effects
- * on swapfile or physical memory
+ * on swapfile or physical memory.
  * 
- * PT_swap_out: marks as swapped the entry corresponding to the virtual address given
+ * PT_swap_out: marks as swapped the entry corresponding to the virtual address given.
  * 
- * PT_swap_in: dual operation of swap out, wrapper of add entry
+ * PT_swap_in: dual operation of swap out, wrapper of add entry.
  * 
  * PT_get_swap_offset: retrieves the swapfile offset of the page corresponding to
- * the given virtual address
+ * the given virtual address.
  *  
- * PT_destroy: destroys page table, freeing all memory resources
+ * PT_destroy: destroys page table, freeing all memory resources.
  * 
  */
 
