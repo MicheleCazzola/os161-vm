@@ -6,4 +6,21 @@
 #ifndef _VMSTATS_H_
 #define _VMSTATS_H_
 
+#define VMSTATS_NUM 10
+
+/**
+ * Functions description
+ * 
+ * VMSTATS_init: initializes statistics to 0. Invoked at bootstrap
+ * 
+ * VMSTATS_increment: increments by one the statistic specified
+ * 
+ * VMSTATS_show: shows (by printing on stdout) the statistics collected.
+ * Invoked at shutdown
+ */
+
+void vmstats_init(void);
+void vmstats_increment(unsigned int stat_index);
+void vmstats_show(void);
+
 #endif  /* _VMSTATS_H_ */
