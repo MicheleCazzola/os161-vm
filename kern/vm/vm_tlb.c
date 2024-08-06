@@ -89,3 +89,14 @@ void vm_tlb_write(vaddr_t vaddr, paddr_t paddr,/* unsigned char dirty,*/ unsigne
 
     tlb_write(entry_hi, entry_lo, index);
 }
+
+/* Gestisce le richieste di tlb shutdown, che non sono utilizzate in questa implementazione.
+ * 
+ * Handles TLB shootdown requests, which are not used in this implementation.
+ */
+void vm_tlbshootdown(const struct tlbshootdown *ts)
+{
+    //write here
+
+    (void)ts;
+}

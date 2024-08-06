@@ -5,33 +5,11 @@
 
 #include <types.h>
 #include <pagevm.h>
+#include <swapfile.h>
+#include <coremap.h>
+#include <vm_tlb.h>
 #include <vm.h>
 #include "opt-paging.h"
-
-/* Function prototypes */
-void vm_bootstrap(void);
-void vm_shutdown(void);
-void vm_tlbshootdown(const struct tlbshootdown *ts);
-int vm_fault(int faulttype, vaddr_t faultaddress);
-void pagevm_can_sleep(void);
-//sunsigned int tlb_get_rr_victim(void);
-
-//static unsigned int current_victim;
-
-
-/* Restituisce il prossimo indice TLB da sostituire utilizzando la politica round-robin.
- * 
- * Returns the next TLB index to replace using round-robin policy.
- */
-
-/*
-static unsigned int tlb_get_rr_victim(void)
-{
-    //write here
-
-    return 0; 
-}
-*/
 
 void pagevm_can_sleep(void)
 {
@@ -46,7 +24,10 @@ void pagevm_can_sleep(void)
  */
 void vm_bootstrap(void)
 {
-    //write here
+    vm_tlb_init();
+    coremap_init();
+    swap_init();
+    //inizializza statistiche
 }
 
 
@@ -56,18 +37,9 @@ void vm_bootstrap(void)
  */
 void vm_shutdown(void)
 {
-    //write here
-}
-
-/* Gestisce le richieste di tlb shootdown, che non sono utilizzate in questa implementazione.
- * 
- * Handles TLB shootdown requests, which are not used in this implementation.
- */
-void vm_tlbshootdown(const struct tlbshootdown *ts)
-{
-    //write here
-
-    (void)ts;
+    swap_shutdown();
+    coremap_shutdown();
+    //stampa statistiche
 }
 
 

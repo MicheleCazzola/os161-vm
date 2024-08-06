@@ -684,15 +684,17 @@ kmalloc.o: ../../vm/kmalloc.c ../../include/types.h \
  includelinks/machine/vm.h
 pagevm.o: ../../vm/pagevm.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
- includelinks/machine/types.h ../../include/pagevm.h ../../include/vm.h \
- includelinks/machine/vm.h opt-paging.h
+ includelinks/machine/types.h ../../include/pagevm.h \
+ ../../include/swapfile.h ../../include/coremap.h ../../include/vm_tlb.h \
+ ../../include/vm.h includelinks/machine/vm.h opt-paging.h
 pt.o: ../../vm/pt.c ../../include/types.h ../../include/kern/types.h \
  includelinks/kern/machine/types.h includelinks/machine/types.h \
- ../../include/pt.h opt-paging.h
-segment.o: ../../vm/segment.c ../../include/segment.h \
- ../../include/types.h ../../include/kern/types.h \
- includelinks/kern/machine/types.h includelinks/machine/types.h \
- ../../include/pt.h opt-paging.h
+ ../../include/lib.h ../../include/cdefs.h opt-noasserts.h \
+ ../../include/kern/errno.h ../../include/pt.h opt-paging.h
+segment.o: ../../vm/segment.c ../../include/types.h \
+ ../../include/kern/types.h includelinks/kern/machine/types.h \
+ includelinks/machine/types.h ../../include/lib.h ../../include/cdefs.h \
+ opt-noasserts.h ../../include/segment.h ../../include/pt.h opt-paging.h
 swapfile.o: ../../vm/swapfile.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/kern/fcntl.h \
@@ -705,8 +707,9 @@ swapfile.o: ../../vm/swapfile.c ../../include/types.h \
 vmstats.o: ../../vm/vmstats.c ../../include/vmstats.h opt-paging.h
 vm_tlb.o: ../../vm/vm_tlb.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
- includelinks/machine/types.h includelinks/mips/tlb.h \
- ../../include/vm_tlb.h opt-paging.h
+ includelinks/machine/types.h ../../include/vm.h \
+ includelinks/machine/vm.h includelinks/mips/tlb.h ../../include/vm_tlb.h \
+ opt-paging.h
 trap.o: ../../arch/mips/locore/trap.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/signal.h \
