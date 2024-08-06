@@ -7,6 +7,8 @@
 #define _VM_TLB_H
 
 /**
+ * Functions description
+ * 
  * VM_TLB_init: used to initialize TLB, needed at each process start and at bootstrap.
  * 
  * VM_TLB_get_victim_round_robin: executes replacement algorithm, returning victim index.
@@ -18,6 +20,7 @@
  * 
  * VM_TLB_write: wrapper for TLB_write, it works with virtual and physical addresses
  * instead of raw TLB entries.
+ * 
  */
 
 void vm_tlb_init(void);
