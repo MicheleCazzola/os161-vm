@@ -253,7 +253,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	paddr_t paddr;
 	int i;
 	uint32_t ehi, elo;
-	struct addrspace *as;
+	addrspace_t *as;
 	int spl;
 
 	faultaddress &= PAGE_FRAME;
@@ -348,10 +348,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 }
 */
 
-struct addrspace *
+addrspace_t *
 as_create(void)
 {
-	struct addrspace *as = kmalloc(sizeof(struct addrspace));
+	addrspace_t *as = kmalloc(sizeof(addrspace_t));
 	if (as==NULL) {
 		return NULL;
 	}
@@ -367,7 +367,7 @@ as_create(void)
 	return as;
 }
 
-void as_destroy(struct addrspace *as){
+void as_destroy(addrspace_t *as){
   dumbvm_can_sleep();
   freeppages(as->as_pbase1, as->as_npages1);
   freeppages(as->as_pbase2, as->as_npages2);
@@ -379,7 +379,7 @@ void
 as_activate(void)
 {
 	int i, spl;
-	struct addrspace *as;
+	addrspace_t *as;
 
 	as = proc_getas();
 	if (as == NULL) {
@@ -403,7 +403,7 @@ as_deactivate(void)
 }
 
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
+as_define_region(addrspace_t *as, vaddr_t vaddr, size_t sz,
 		 int readable, int writeable, int executable)
 {
 	size_t npages;
@@ -451,7 +451,7 @@ as_zero_region(paddr_t paddr, unsigned npages)
 }
 
 int
-as_prepare_load(struct addrspace *as)
+as_prepare_load(addrspace_t *as)
 {
 	KASSERT(as->as_pbase1 == 0);
 	KASSERT(as->as_pbase2 == 0);
@@ -482,7 +482,7 @@ as_prepare_load(struct addrspace *as)
 }
 
 int
-as_complete_load(struct addrspace *as)
+as_complete_load(addrspace_t *as)
 {
 	dumbvm_can_sleep();
 	(void)as;
@@ -490,7 +490,7 @@ as_complete_load(struct addrspace *as)
 }
 
 int
-as_define_stack(struct addrspace *as, vaddr_t *stackptr)
+as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 {
 	KASSERT(as->as_stackpbase != 0);
 
@@ -499,9 +499,9 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 }
 
 int
-as_copy(struct addrspace *old, struct addrspace **ret)
+as_copy(addrspace_t *old, addrspace_t **ret)
 {
-	struct addrspace *new;
+	addrspace_t *new;
 
 	dumbvm_can_sleep();
 
@@ -622,7 +622,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	paddr_t paddr;
 	int i;
 	uint32_t ehi, elo;
-	struct addrspace *as;
+	addrspace_t *as;
 	int spl;
 
 	faultaddress &= PAGE_FRAME;
@@ -716,10 +716,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	return EFAULT;
 }
 
-struct addrspace *
+addrspace_t *
 as_create(void)
 {
-	struct addrspace *as = kmalloc(sizeof(struct addrspace));
+	addrspace_t *as = kmalloc(sizeof(addrspace_t));
 	if (as==NULL) {
 		return NULL;
 	}
@@ -736,7 +736,7 @@ as_create(void)
 }
 
 void
-as_destroy(struct addrspace *as)
+as_destroy(addrspace_t *as)
 {
 	dumbvm_can_sleep();
 	kfree(as);
@@ -746,7 +746,7 @@ void
 as_activate(void)
 {
 	int i, spl;
-	struct addrspace *as;
+	addrspace_t *as;
 
 	as = proc_getas();
 	if (as == NULL) {
@@ -770,7 +770,7 @@ as_deactivate(void)
 }
 
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
+as_define_region(addrspace_t *as, vaddr_t vaddr, size_t sz,
 		 int readable, int writeable, int executable)
 {
 	size_t npages;
@@ -818,7 +818,7 @@ as_zero_region(paddr_t paddr, unsigned npages)
 }
 
 int
-as_prepare_load(struct addrspace *as)
+as_prepare_load(addrspace_t *as)
 {
 	KASSERT(as->as_pbase1 == 0);
 	KASSERT(as->as_pbase2 == 0);
@@ -849,7 +849,7 @@ as_prepare_load(struct addrspace *as)
 }
 
 int
-as_complete_load(struct addrspace *as)
+as_complete_load(addrspace_t *as)
 {
 	dumbvm_can_sleep();
 	(void)as;
@@ -857,7 +857,7 @@ as_complete_load(struct addrspace *as)
 }
 
 int
-as_define_stack(struct addrspace *as, vaddr_t *stackptr)
+as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 {
 	KASSERT(as->as_stackpbase != 0);
 
@@ -866,9 +866,9 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 }
 
 int
-as_copy(struct addrspace *old, struct addrspace **ret)
+as_copy(addrspace_t *old, addrspace_t **ret)
 {
-	struct addrspace *new;
+	addrspace_t *new;
 
 	dumbvm_can_sleep();
 

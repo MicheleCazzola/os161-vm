@@ -59,7 +59,7 @@ void coremap_shutdown(void) {
  */
 /*static paddr_t getfreeppages(unsigned long npages,
                              unsigned char entry_type,
-                             struct addrspace *as,
+                             addrspace_t *as,
                              vaddr_t vaddr)
 {
     (void) npages;

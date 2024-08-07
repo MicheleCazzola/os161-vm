@@ -38,7 +38,7 @@ sys__exit(int status)
 #endif
 #else
   /* get address space of current process and destroy */
-  struct addrspace *as = proc_getas();
+  addrspace_t *as = proc_getas();
   as_destroy(as);
 #endif
   thread_exit();

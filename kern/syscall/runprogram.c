@@ -54,7 +54,7 @@
 int
 runprogram(char *progname)
 {
-	struct addrspace *as;
+	addrspace_t *as;
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;

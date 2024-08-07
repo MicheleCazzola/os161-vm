@@ -41,27 +41,56 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
-struct addrspace *
-as_create(void)
-{
-	struct addrspace *as;
+addrspace_t *as_create(void){
+	addrspace_t *as;
 
-	as = kmalloc(sizeof(struct addrspace));
+	as = kmalloc(sizeof(addrspace_t));
 	if (as == NULL) {
 		return NULL;
 	}
 
-	/*
-	 * Initialize as needed.
-	 */
+	#if OPT_PAGING
+
+		as->seg_code = NULL;
+		as->seg_data = NULL;
+		as->seg_stack = NULL;
+
+	#endif
 
 	return as;
 }
 
-int
-as_copy(struct addrspace *old, struct addrspace **ret)
-{
-	struct addrspace *newas;
+
+void as_destroy(addrspace_t *as){
+	
+	#if OPT_PAGING
+		struct vnode *v;
+		KASSERT(as != NULL);
+
+		/* 
+		* Destroy the defined segments, close the ELF file 
+		* and free the structure 
+		*/
+		v = as->seg_code->elf_vnode;
+		if (as->seg_code != NULL)
+			seg_destroy(as->seg_code);
+
+		if (as->seg_data != NULL)
+			seg_destroy(as->seg_data);
+
+		if (as->seg_stack != NULL)
+			seg_destroy(as->seg_stack);
+
+		if (v != NULL)
+			vfs_close(v);
+
+	#endif 
+
+	kfree(as);
+}
+
+int as_copy(addrspace_t *old, addrspace_t **ret){
+	addrspace_t *newas;
 
 	newas = as_create();
 	if (newas==NULL) {
@@ -78,20 +107,11 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	return 0;
 }
 
-void
-as_destroy(struct addrspace *as)
-{
-	/*
-	 * Clean up as needed.
-	 */
-
-	kfree(as);
-}
 
 void
 as_activate(void)
 {
-	struct addrspace *as;
+	addrspace_t *as;
 
 	as = proc_getas();
 	if (as == NULL) {
@@ -101,6 +121,12 @@ as_activate(void)
 		 */
 		return;
 	}
+
+	#if OPT_PAGING
+
+	vm_tlb_init();
+
+	#endif
 
 	/*
 	 * Write this.
@@ -128,7 +154,7 @@ as_deactivate(void)
  * want to implement them.
  */
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
+as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
 	/*
@@ -145,7 +171,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 }
 
 int
-as_prepare_load(struct addrspace *as)
+as_prepare_load(addrspace_t *as)
 {
 	/*
 	 * Write this.
@@ -156,7 +182,7 @@ as_prepare_load(struct addrspace *as)
 }
 
 int
-as_complete_load(struct addrspace *as)
+as_complete_load(addrspace_t *as)
 {
 	/*
 	 * Write this.
@@ -167,7 +193,7 @@ as_complete_load(struct addrspace *as)
 }
 
 int
-as_define_stack(struct addrspace *as, vaddr_t *stackptr)
+as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 {
 	/*
 	 * Write this.

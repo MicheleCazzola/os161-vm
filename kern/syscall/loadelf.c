@@ -76,7 +76,7 @@
  */
 static
 int
-load_segment(struct addrspace *as, struct vnode *v,
+load_segment(addrspace_t *as, struct vnode *v,
 	     off_t offset, vaddr_t vaddr,
 	     size_t memsize, size_t filesize,
 	     int is_executable)
@@ -158,7 +158,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 	int result, i;
 	struct iovec iov;
 	struct uio ku;
-	struct addrspace *as;
+	addrspace_t *as;
 
 	as = proc_getas();
 

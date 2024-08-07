@@ -39,7 +39,7 @@
 #include <spinlock.h>
 #include "opt-waitpid.h"
 
-struct addrspace;
+addrspace_t;
 struct thread;
 struct vnode;
 
@@ -73,7 +73,7 @@ struct proc {
 	unsigned p_numthreads;		/* Number of threads in this process */
 
 	/* VM */
-	struct addrspace *p_addrspace;	/* virtual address space */
+	addrspace_t *p_addrspace;	/* virtual address space */
 
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
@@ -111,10 +111,10 @@ int proc_addthread(struct proc *proc, struct thread *t);
 void proc_remthread(struct thread *t);
 
 /* Fetch the address space of the current process. */
-struct addrspace *proc_getas(void);
+addrspace_t *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
-struct addrspace *proc_setas(struct addrspace *);
+addrspace_t *proc_setas(addrspace_t *);
 
 /* wait for process termination, and return exit status */
 int proc_wait(struct proc *proc);

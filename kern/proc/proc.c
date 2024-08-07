@@ -250,7 +250,7 @@ proc_destroy(struct proc *proc)
 		 * incorrect to destroy the proc structure of some
 		 * random other process while it's still running...
 		 */
-		struct addrspace *as;
+		addrspace_t *as;
 
 		if (proc == curproc) {
 			as = proc_setas(NULL);
@@ -390,10 +390,10 @@ proc_remthread(struct thread *t)
  * some other method to make this safe. Otherwise the returned address
  * space might disappear under you.
  */
-struct addrspace *
+addrspace_t *
 proc_getas(void)
 {
-	struct addrspace *as;
+	addrspace_t *as;
 	struct proc *proc = curproc;
 
 	if (proc == NULL) {
@@ -410,10 +410,10 @@ proc_getas(void)
  * Change the address space of (the current) process. Return the old
  * one for later restoration or disposal.
  */
-struct addrspace *
-proc_setas(struct addrspace *newas)
+addrspace_t *
+proc_setas(addrspace_t *newas)
 {
-	struct addrspace *oldas;
+	addrspace_t *oldas;
 	struct proc *proc = curproc;
 
 	KASSERT(proc != NULL);
