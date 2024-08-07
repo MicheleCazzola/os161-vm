@@ -37,6 +37,7 @@
 
 #include <vm.h>
 #include <segment.h>
+#include "opt-dumbvm.h"
 #include "opt-paging.h"
 
 struct vnode;
@@ -58,8 +59,8 @@ typedef struct {
         paddr_t as_pbase2;
         size_t as_npages2;
         paddr_t as_stackpbase;
-
-#elif OPT_PAGING
+#endif
+#if OPT_PAGING
 
         ps_t *seg_code;
         ps_t *seg_data;

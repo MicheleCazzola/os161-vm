@@ -6,4 +6,6 @@ sfs_inode.o: ../../fs/sfs/sfs_inode.c ../../include/types.h \
  ../../include/fs.h ../../include/vnode.h ../../include/spinlock.h \
  ../../include/hangman.h opt-hangman.h includelinks/machine/spinlock.h \
  ../../include/kern/sfs.h ../../fs/sfs/sfsprivate.h ../../include/uio.h \
+ ../../include/addrspace.h ../../include/vm.h includelinks/machine/vm.h \
+ ../../include/segment.h ../../include/pt.h opt-paging.h \
  ../../include/kern/iovec.h

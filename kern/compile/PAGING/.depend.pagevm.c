@@ -9,4 +9,5 @@ pagevm.o: ../../vm/pagevm.c ../../include/types.h \
  opt-hangman.h includelinks/machine/spinlock.h ../../include/threadlist.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/cpu.h \
- ../../include/proc.h opt-waitpid.h opt-paging.h
+ ../../include/proc.h ../../include/addrspace.h ../../include/segment.h \
+ ../../include/pt.h opt-paging.h opt-waitpid.h

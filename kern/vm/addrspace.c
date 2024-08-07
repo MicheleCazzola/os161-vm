@@ -30,9 +30,11 @@
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
+#include <vfs.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <vm_tlb.h>
 #include "opt-paging.h"
 
 /*

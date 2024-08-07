@@ -29,7 +29,6 @@ typedef enum {
  * elf_vnode: pointer to the vnode of the corresponding ELF file
  * page_table: pointer to the page table of the segment
  */
-
 typedef struct  {
     seg_permissions_t permissions;
     size_t seg_size_bytes;
@@ -61,7 +60,7 @@ typedef struct  {
  * 
  * SEG_add_pt_entry: wrapper for pt_add_entry, except for some checks.
  * 
- * SEG_load_page:
+ * SEG_load_page: physically loads a new page in memory, by reading its content from ELF file.
  * 
  * SEG_swap_out: wrapper for pt_swap_out, except for some checks.
  * 

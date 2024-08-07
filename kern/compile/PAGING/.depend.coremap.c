@@ -8,6 +8,6 @@ coremap.o: ../../vm/coremap.c ../../include/types.h \
  ../../include/threadlist.h includelinks/machine/thread.h \
  ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
  ../../include/cpu.h includelinks/machine/vm.h ../../include/proc.h \
- opt-waitpid.h ../../include/addrspace.h ../../include/vm.h opt-dumbvm.h \
- ../../include/pagevm.h ../../include/coremap.h ../../include/swapfile.h \
- opt-paging.h
+ ../../include/addrspace.h ../../include/vm.h ../../include/segment.h \
+ ../../include/pt.h opt-paging.h opt-waitpid.h ../../include/pagevm.h \
+ ../../include/coremap.h ../../include/swapfile.h

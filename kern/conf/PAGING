@@ -31,13 +31,13 @@ options semfs			  # Semaphores for userland
 options sfs			    # Always use the file system
 #options netfs			# You might write this as a project.
 
-options dumbvm			# Chewing gum and baling wire.
+#options dumbvm			# Chewing gum and baling wire.
 
-options syscalls    # lab2
+#options syscalls    # lab2
 
-options synch       # lab3         
+#options synch       # lab3         
 
-options waitpid     # lab4
-options fork
+#options waitpid     # lab4
+#options fork
 
 options paging      # project

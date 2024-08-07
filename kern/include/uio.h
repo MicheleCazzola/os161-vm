@@ -54,7 +54,7 @@
  * desired value explicitly after calling uiomove, as uiomove always
  * increments uio_offset by the number of bytes transferred.
  */
-
+#include <addrspace.h>
 #include <kern/iovec.h>
 
 /* Direction. */

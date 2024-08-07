@@ -26,7 +26,6 @@
  * base_vaddr: starting virtual address of the page table
  * page_buffer: page entries of the page table, as starting physical address 
  */
-
 typedef struct {
     unsigned long num_pages;
     vaddr_t base_vaddr;

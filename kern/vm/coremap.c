@@ -93,21 +93,21 @@ void coremap_shutdown(void) {
 }*/
 
 /* Allocate some kernel-space pages, also used in kmalloc() */
-/*vaddr_t alloc_kpages(unsigned npages)
+vaddr_t alloc_kpages(unsigned npages)
 {
     (void) npages;
     return 0; // Example return value
-}*/
+}
 
 /*
  * Free the range of memory pages that have been
  * previously allocated to the kernel by alloc_kpages()
  * Also used in kfree()
  */
-/*void free_kpages(vaddr_t addr)
+void free_kpages(vaddr_t addr)
 {
     (void) addr;
-}*/
+}
 
 /* pageVM paging support */
 

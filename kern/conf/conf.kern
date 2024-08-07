@@ -448,17 +448,6 @@ optfile net	test/nettest.c
 #                                      #
 ########################################
 
-defoption   hello
-optfile     hello main/hello.c
-
-defoption   syscalls
-optfile     syscalls    syscall/file_syscalls.c
-optfile     syscalls    syscall/proc_syscalls.c
-
-defoption   synch
-defoption   fork
-defoption   waitpid
-
 defoption   paging
 optfile     paging      vm/coremap.c
 optfile     paging      vm/pagevm.c
@@ -467,3 +456,5 @@ optfile     paging      vm/pt.c
 optfile     paging      vm/swapfile.c
 optfile     paging      vm/vm_tlb.c
 optfile     paging      vm/vmstats.c
+optfile     paging      syscall/file_syscalls.c
+optfile     paging      syscall/proc_syscalls.c

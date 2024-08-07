@@ -7,7 +7,10 @@
 #include <lib.h>
 #include <vm.h>
 #include <kern/errno.h>
+#include <uio.h>
+#include <vnode.h>
 #include <swapfile.h>
+#include <vmstats.h>
 #include <segment.h>
 
 /**
@@ -210,11 +213,164 @@ void seg_add_pt_entry(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
     pt_add_entry(proc_seg->page_table, vaddr, paddr);
 }
 
-int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr){
+/**
+ * Physically loads a new page in memory: it consists in a read operation from ELF file.
+ * Invoked only for text and data segment, not stack, and only if page has never been loaded before;
+ * in other cases, it is only swapped in, using the proper function seg_swap_in, from the swapfile.
+ * No operations on the page table are performed here.
+ */
+int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
 
-    (void)proc_seg;
-    (void)vaddr;
-    (void)paddr;
+    vaddr_t page_seg_base_vaddr, seg_base_offset_in_page, previous_pages_offset;
+    unsigned long index;
+    paddr_t load_paddr;
+    size_t load_len_bytes;
+    off_t elf_offset;
+    struct iovec iovec;
+    struct uio uio;
+    int result;
+
+    KASSERT(proc_seg != NULL);
+    KASSERT(proc_seg->elf_vnode != NULL);
+    
+    /**
+     * Segment start virtual address, page aligned. Used
+     * to compute index of entry in page table.
+     */
+    page_seg_base_vaddr = proc_seg->base_vaddr & PAGE_FRAME;
+    index = (vaddr - page_seg_base_vaddr) / PAGE_SIZE;
+
+    KASSERT(index < proc_seg->num_pages);
+
+    // Offset of segment start virtual address in its first page
+    seg_base_offset_in_page = proc_seg->base_vaddr & (~PAGE_FRAME);
+
+    /**
+     * Faulty virtual address is in first page. Segment virtual space could
+     * begin with an internal page offset: page loading must start from begin of
+     * segment for needed length, zeroing the starting (and final, if needed)
+     * portion of the physical frame.
+     */
+    if (index == 0) {
+        // Physical frame is filled as it was in the ELF file
+        load_paddr = paddr + seg_base_offset_in_page;
+
+        // Loading starts from the beginning of the segment virtual space
+        elf_offset = proc_seg->file_offset;
+
+        /**
+         * If the number of bytes to load is limited to the current page, all
+         * segment is loaded, otherwise only the portion in the current page
+         * is loaded
+         */
+        if (proc_seg->seg_size_bytes > PAGE_SIZE - seg_base_offset_in_page) {
+            load_len_bytes = PAGE_SIZE - seg_base_offset_in_page;
+        }
+        else {
+            load_len_bytes = proc_seg->seg_size_bytes;
+        }
+    }
+    /**
+     * Faulty virtual address is in last page. Loading point is at page beginning,
+     * number of bytes to read depend to the length of the segment virtual space.
+     * The other portion of the page must be zeroed.
+     */
+    else if (index == proc_seg->num_pages - 1) {
+
+        // Loading starts at page beginning
+        load_paddr = paddr;
+
+        /**
+         * Offset in ELF is given by:
+         * - segment offset in ELF
+         * - number of bytes of previous pages
+         * - removing the base offset of the segment in the first page
+         */
+        previous_pages_offset = (proc_seg->num_pages - 1) * PAGE_SIZE - seg_base_offset_in_page;
+        elf_offset = proc_seg->file_offset + previous_pages_offset;
+
+        /**
+         * The number of bytes to read could be:
+         * - 0: the effective dimension of the segment is lower than what can be stored in the pages allocated for it
+         *      and the faulty address is there
+         * - >0: there is some content of the segment to read in the current page
+         */
+        if (proc_seg->seg_size_bytes <= previous_pages_offset) {
+            load_len_bytes = 0;
+        }
+        else {
+            load_len_bytes = proc_seg->seg_size_bytes - previous_pages_offset;
+        }
+    }
+    /**
+     * Faulty address is inside a middle page. Loading point is at page beginning,
+     * file offset depend on page index; the number of bytes to read could be the whole page,
+     * a portion of it or it could be zero. The other portion of the page must be zeroed.
+     */
+    else {
+        // Loading starts at page beginning
+        load_paddr = paddr;
+
+        /**
+         * Offset in ELF is computed as in the previous case
+         */
+        previous_pages_offset = index * PAGE_SIZE - seg_base_offset_in_page;
+        elf_offset = proc_seg->file_offset + previous_pages_offset;
+
+        /**
+         * The number of bytes to read could be:
+         * - 0: as in previous case
+         * - PAGE_SIZE: the segment does not finish in the current page, so this must be fully loaded
+         * - otherwise: the segment ends in the current page, but this is not the last one allocated for the segment
+         */
+        if (proc_seg->seg_size_bytes <= previous_pages_offset) {
+            load_len_bytes = 0;
+        }
+        else if (proc_seg->seg_size_bytes > PAGE_SIZE + previous_pages_offset) {
+            load_len_bytes = PAGE_SIZE;
+        }
+        else {
+            load_len_bytes = proc_seg->seg_size_bytes - previous_pages_offset;
+        }
+    }
+
+    /**
+     * The physical frame corresponding to the page to load
+     * is zeroed: it will be filled (if necessary) using VOP_READ
+     */
+    bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
+
+    /**
+     * Update statistics:
+     * - if there are no bytes to read, it is a page fault requiring a new zeroed page
+     * - otherwise, it is a page fault that requires a read operation from ELF file and, consequently, from disk
+     */
+    if (load_len_bytes == 0) {
+        vmstats_increment(VMSTAT_PAGE_FAULT_ZERO);
+    }
+    else {
+        vmstats_increment(VMSTAT_PAGE_FAULT_DISK);
+        vmstats_increment(VMSTAT_PAGE_FAULT_ELF);
+    }
+
+    /**
+     * Read from ELF file, given physical start addres in memory, start offset in ELF file
+     * and number of bytes to read 
+     */
+    uio_kinit(&iovec, &uio, (void *)PADDR_TO_KVADDR(load_paddr), load_len_bytes, elf_offset, UIO_READ);
+    result = VOP_READ(proc_seg->elf_vnode, &uio);
+
+    if (result) {
+        return result;
+    }
+
+    /**
+     * Successful read, but stopped before reading all bytes for some reason
+     */
+    if (uio.uio_resid > 0) {
+        kprintf("Error: truncated read on executable");
+        return ENOEXEC;
+    }
 
     return 0;
 }

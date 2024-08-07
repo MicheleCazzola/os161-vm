@@ -37,9 +37,10 @@
  */
 
 #include <spinlock.h>
+#include <addrspace.h>
 #include "opt-waitpid.h"
 
-addrspace_t;
+//addrspace_t;
 struct thread;
 struct vnode;
 
