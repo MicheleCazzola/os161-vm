@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Filippo Forte - 2024
  * Memory allocator based on demand paging
  */
 

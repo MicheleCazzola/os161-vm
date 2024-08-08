@@ -27,6 +27,12 @@
  * SUCH DAMAGE.
  */
 
+
+/**
+ * Authors: Filippo Forte - 2024
+ * Memory allocator based on demand paging
+ */
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -207,12 +213,73 @@ int as_complete_load(addrspace_t *as)
 }
 
 
-int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
-		 int readable, int writeable, int executable)
+/*
+ * Set up a memory segment at the virtual address VADDR with a size of MEMSIZE.
+ * The segment in memory will range from VADDR up to (but not including) VADDR + MEMSIZE.
+ *
+ * The flags READABLE, WRITEABLE, and EXECUTABLE are set if the segment should 
+ * have read, write, or execute permissions, respectively. These flags are currently 
+ * placeholders and are not yet implemented. When implementing the VM system, these 
+ * flags may be used to enforce specific permissions.
+ */
+#if OPT_PAGING
+
+int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize, size_t file_size,
+                     off_t offset, struct vnode *v, int readable, int writeable, int executable)
 {
-	/*
-	 * Write this.
-	 */
+    size_t npages;
+
+    // Ensure the address space and vnode are valid
+    KASSERT(as != NULL);
+    KASSERT(v != NULL);
+
+    /* 
+     * Compute the number of pages needed for the segment.
+     * First, account for any offset within the first page.
+     * Then, round up the size to the nearest page boundary.
+     */
+    npages = memsize + (vaddr & ~(vaddr_t)PAGE_FRAME);   // Add offset within the first page
+    npages = (npages + PAGE_SIZE - 1) & PAGE_FRAME;      // Round up to the nearest page
+    npages = npages / PAGE_SIZE;                         // Calculate the total number of pages
+	
+
+    // If the code segment is not defined, create and define it
+    if (as->seg_code == NULL)
+    {
+        as->seg_code = seg_create();  // Create a new segment for code
+        if (as->seg_code == NULL)
+        {
+            return ENOMEM;  // Return if memory allocation fails
+        }
+        seg_define(as->seg_code, vaddr, file_size, offset, memsize, npages, v, readable, writeable, executable);
+        return 0;
+    }
+
+    // If the data segment is not defined, create and define it
+    if (as->seg_data == NULL)
+    {
+        as->seg_data = seg_create();  // Create a new segment for data
+        if (as->seg_data == NULL)
+        {
+            return ENOMEM;  // Return if memory allocation fails
+        }
+        seg_define(as->seg_data, vaddr, file_size, offset, memsize, npages, v, readable, writeable, executable);
+        return 0;
+    }
+
+    /*
+     * Currently, support for more than two regions (code and data) is not implemented.
+     * If an attempt is made to define more than two regions, a warning is issued.
+     */
+    kprintf("paging: Warning: too many regions\n");
+
+    return ENOSYS;  // Return a 'function not implemented' error code
+}
+
+#else
+
+int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,int readable, int writeable, int executable)
+{
 
 	(void)as;
 	(void)vaddr;
@@ -220,8 +287,14 @@ int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
+
+
 	return ENOSYS;
 }
+
+#endif
+
+
 
 int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 {

@@ -27,6 +27,11 @@
  * SUCH DAMAGE.
  */
 
+/**
+ * Authors: Filippo Forte - 2024
+ * Memory allocator based on demand paging
+ */
+
 #ifndef _ADDRSPACE_H_
 #define _ADDRSPACE_H_
 
@@ -112,19 +117,30 @@ typedef struct {
  */
 
 addrspace_t *as_create(void);
-int               as_copy(addrspace_t *src, addrspace_t **ret);
-void              as_activate(void);
-void              as_deactivate(void);
-void              as_destroy(addrspace_t *);
+int as_copy(addrspace_t *src, addrspace_t **ret);
+void as_activate(void);
+void as_deactivate(void);
+void as_destroy(addrspace_t *);
+int as_prepare_load(addrspace_t *as);
+int as_complete_load(addrspace_t *as);
+int as_define_stack(addrspace_t *as, vaddr_t *initstackptr);
 
-int               as_define_region(addrspace_t *as,
+#if OPT_PAGING
+int as_define_region(addrspace_t *as,
+                                   vaddr_t vaddr, size_t memsize,
+                                   size_t file_size,
+                                   off_t offset,
+                                   struct vnode *v,
+                                   int readable,
+                                   int writeable,
+                                   int executable);
+#else
+int as_define_region(addrspace_t *as,
                                    vaddr_t vaddr, size_t sz,
                                    int readable,
                                    int writeable,
                                    int executable);
-int               as_prepare_load(addrspace_t *as);
-int               as_complete_load(addrspace_t *as);
-int               as_define_stack(addrspace_t *as, vaddr_t *initstackptr);
+#endif
 
 
 /*

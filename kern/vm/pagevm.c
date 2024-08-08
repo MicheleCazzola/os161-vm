@@ -1,10 +1,11 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Filippo Forte - 2024
  * Memory allocator based on demand paging
  */
 
 #include <types.h>
 #include <pagevm.h>
+#include <vmstats.h>
 #include <swapfile.h>
 #include <coremap.h>
 #include <vm_tlb.h>
@@ -44,7 +45,7 @@ void vm_bootstrap(void)
     vm_tlb_init();
     coremap_init();
     swap_init();
-    //inizializza statistiche
+    vmstats_init();
 }
 
 
@@ -56,7 +57,7 @@ void vm_shutdown(void)
 {
     swap_shutdown();
     coremap_shutdown();
-    //stampa statistiche
+    vmstats_show();
 }
 
 
