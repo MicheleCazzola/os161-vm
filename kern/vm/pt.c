@@ -193,7 +193,7 @@ void pt_clear_content(pt_t *pt) {
          * Page stored in memory: memory is freed
          */
         else if(pt->page_buffer[i] != PT_EMPTY_ENTRY) {
-            free_upage(pt->page_buffer[i]);
+            free_user_page(pt->page_buffer[i]);
         }
     }
 }

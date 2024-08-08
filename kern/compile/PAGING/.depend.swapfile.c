@@ -6,5 +6,5 @@ swapfile.o: ../../vm/swapfile.c ../../include/types.h \
  ../../include/vfs.h ../../include/array.h ../../include/lib.h \
  opt-noasserts.h ../../include/uio.h ../../include/addrspace.h \
  ../../include/vm.h includelinks/machine/vm.h ../../include/segment.h \
- ../../include/pt.h opt-paging.h ../../include/kern/iovec.h \
+ ../../include/pt.h opt-dumbvm.h opt-paging.h ../../include/kern/iovec.h \
  ../../include/bitmap.h ../../include/swapfile.h ../../include/vmstats.h
