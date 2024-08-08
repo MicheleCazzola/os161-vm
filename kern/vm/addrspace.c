@@ -309,3 +309,17 @@ int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 
 	return 0;
 }
+
+
+#if OPT_PAGING
+ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
+{
+
+    (void)as;
+    (void)vaddr;
+
+    return NULL;
+
+}
+
+#endif
