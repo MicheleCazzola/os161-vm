@@ -174,11 +174,36 @@ int as_copy(addrspace_t *old_as, addrspace_t **ret){
     }
     #endif
 
-    (void)old_as; // Unused variable
-
     // Set the return pointer to the new address space
     *ret = new_as;
     return 0;
+}
+
+
+int as_prepare_load(addrspace_t *as)
+{
+#if OPT_PAGING
+
+	if (seg_prepare(as->seg_code) != 0)
+	{
+		return ENOMEM;
+	}
+
+	if (seg_prepare(as->seg_data) != 0)
+	{
+		return ENOMEM;
+	}
+#endif 
+
+	return 0;
+}
+
+
+int as_complete_load(addrspace_t *as)
+{
+
+	(void)as;
+	return 0;
 }
 
 
@@ -209,25 +234,5 @@ int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 
-	return 0;
-}
-
-int as_prepare_load(addrspace_t *as)
-{
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	return 0;
-}
-
-int as_complete_load(addrspace_t *as)
-{
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
 	return 0;
 }
