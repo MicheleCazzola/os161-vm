@@ -34,6 +34,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <spl.h>
 #include <vm_tlb.h>
 #include "opt-paging.h"
 
@@ -91,72 +92,97 @@ void as_destroy(addrspace_t *as){
 	kfree(as);
 }
 
-int as_copy(addrspace_t *old, addrspace_t **ret){
-	addrspace_t *newas;
 
-	newas = as_create();
-	if (newas==NULL) {
-		return ENOMEM;
-	}
-
-	/*
-	 * Write this.
-	 */
-
-	(void)old;
-
-	*ret = newas;
-	return 0;
-}
-
-
-void
-as_activate(void)
+// Function to activate an address space
+void as_activate(void)
 {
-	addrspace_t *as;
+    addrspace_t *as;
 
-	as = proc_getas();
-	if (as == NULL) {
-		/*
-		 * Kernel thread without an address space; leave the
-		 * prior address space in place.
-		 */
-		return;
-	}
+    // Get the current process's address space
+    as = proc_getas();
+    if (as == NULL) {
+        /*
+         * Kernel thread without an address space; leave the
+         * prior address space in place.
+         */
+        return;
+    }
 
-	#if OPT_PAGING
+    #if OPT_PAGING
+    int spl;
 
-	vm_tlb_init();
+    // Disable interrupts
+    spl = splhigh();
 
-	#endif
+    // Initialize the TLB (Translation Lookaside Buffer)
+    vm_tlb_init();
 
-	/*
-	 * Write this.
-	 */
+    // Restore interrupt state
+    splx(spl);
+    #endif
 }
 
-void
-as_deactivate(void)
+
+// Function to deactivate an address space
+void as_deactivate(void)
 {
-	/*
-	 * Write this. For many designs it won't need to actually do
-	 * anything. See proc.c for an explanation of why it (might)
-	 * be needed.
-	 */
+    /*
+     * Write this. For many designs it won't need to actually do
+     * anything. See proc.c for an explanation of why it (might)
+     * be needed.
+     */
 }
 
-/*
- * Set up a segment at virtual address VADDR of size MEMSIZE. The
- * segment in memory extends from VADDR up to (but not including)
- * VADDR+MEMSIZE.
- *
- * The READABLE, WRITEABLE, and EXECUTABLE flags are set if read,
- * write, or execute permission should be set on the segment. At the
- * moment, these are ignored. When you write the VM system, you may
- * want to implement them.
- */
-int
-as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
+
+// Function to copy an address space
+int as_copy(addrspace_t *old_as, addrspace_t **ret){
+    addrspace_t *new_as;
+
+    #if OPT_PAGING
+        KASSERT(old_as != NULL);
+        KASSERT(old_as->seg_code != NULL);
+        KASSERT(old_as->seg_data != NULL);
+        KASSERT(old_as->seg_stack != NULL);
+    #endif
+
+    // Create a new address space
+    new_as = as_create();
+    if (new_as == NULL) {
+        return ENOMEM;
+    }
+
+    #if OPT_PAGING
+    // Copy the code segment, destroy the new address space if it fails
+    if (!seg_copy(old_as->seg_code, &(new_as->seg_code))) {
+        as_destroy(new_as);
+        return ENOMEM;
+    }
+
+    // Copy the data segment, destroy the new segments and address space if it fails
+    if (!seg_copy(old_as->seg_data, &(new_as->seg_data))) {
+        seg_destroy(new_as->seg_code);
+        as_destroy(new_as);
+        return ENOMEM;
+    }
+
+    // Copy the stack segment, destroy the new segments and address space if it fails
+    if (!seg_copy(old_as->seg_stack, &(new_as->seg_stack))) {
+        seg_destroy(new_as->seg_code);
+        seg_destroy(new_as->seg_data);
+        as_destroy(new_as);
+        return ENOMEM;
+    }
+    #endif
+
+    (void)old_as; // Unused variable
+
+    // Set the return pointer to the new address space
+    *ret = new_as;
+    return 0;
+}
+
+
+int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
 	/*
@@ -172,30 +198,7 @@ as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
 	return ENOSYS;
 }
 
-int
-as_prepare_load(addrspace_t *as)
-{
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	return 0;
-}
-
-int
-as_complete_load(addrspace_t *as)
-{
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	return 0;
-}
-
-int
-as_define_stack(addrspace_t *as, vaddr_t *stackptr)
+int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 {
 	/*
 	 * Write this.
@@ -209,3 +212,22 @@ as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 	return 0;
 }
 
+int as_prepare_load(addrspace_t *as)
+{
+	/*
+	 * Write this.
+	 */
+
+	(void)as;
+	return 0;
+}
+
+int as_complete_load(addrspace_t *as)
+{
+	/*
+	 * Write this.
+	 */
+
+	(void)as;
+	return 0;
+}
