@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Leone Fabio - 2024
  * Coremap handling, used to track freed frames
  */
 
@@ -235,108 +235,109 @@ void free_kpages(vaddr_t addr) {
         free_pages(physical_address, coremap[first_page].allocation_size);
     }
 }
-
 /*
  * Allocates a single user page.
  * Tries to find a free page managed by coremap first; if not found, it calls ram_stealmem().
  * Updates the coremap to track the allocated page and handles page replacement if necessary.
  */
 static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
-    addrspace_t *current_as;
-    //ps_t *victim_segment;
-    paddr_t address;
+    addrspace_t *current_as;  // Pointer to the current address space of the process
+    paddr_t address;  // Physical address of the page to be allocated
     unsigned long last_allocated_temp, current_victim_temp, new_victim;
-    off_t swapfile_offset;
-    int result;
+    off_t swapfile_offset;  // Offset in the swap file where the page will be swapped out
+    int result;  // Result code for the swap-out operation
 
+    // Retrieve the current address space of the process
     current_as = proc_getas();
-    KASSERT(current_as != NULL); /* Ensure that address space is initialized */
-    KASSERT((associated_vaddr & PAGE_FRAME) == associated_vaddr); /* Ensure page alignment */
+    KASSERT(current_as != NULL);  // Ensure the address space is correctly initialized
+    KASSERT((associated_vaddr & PAGE_FRAME) == associated_vaddr);  // Ensure the virtual address is page-aligned
 
-    /* Try to allocate from freed pages managed by coremap */
+    // Attempt to allocate a free page from the coremap
     address = allocate_free_pages(1, COREMAP_BUSY_USER, current_as, associated_vaddr);
     if (address == 0) {
-        /* Call stealmem if no free pages are available */
-        spinlock_acquire(&stealmem_lock);
-        address = ram_stealmem(1);
-        spinlock_release(&stealmem_lock);
+        // If no free pages are available, acquire memory by calling ram_stealmem()
+        spinlock_acquire(&stealmem_lock);  
+        address = ram_stealmem(1);  // Request a page from the system
+        spinlock_release(&stealmem_lock);  
     }
-    /* Update the coremap to track the newly obtained page from ram_stealmem */
-	if (is_coremap_active())
-	{
-		spinlock_acquire(&page_replacement_lock);
-		last_allocated_temp = last_allocated_page;
-		current_victim_temp = current_victim_page;
-		spinlock_release(&page_replacement_lock);
+
+    // If the coremap is active, update its state
+    if (is_coremap_active()) {
+        spinlock_acquire(&page_replacement_lock);  
+        last_allocated_temp = last_allocated_page;  // Save the index of the last allocated page
+        current_victim_temp = current_victim_page;  // Save the index of the current victim page
+        spinlock_release(&page_replacement_lock);  
 
         if (address != 0) {
-            long page_index = address / PAGE_SIZE;
-            KASSERT(total_ram_frames > page_index);
+            long page_index = address / PAGE_SIZE;  // Compute the index of the page in the coremap
+            KASSERT(total_ram_frames > page_index);  // Ensure the page index is within valid range
 
-            /* Update coremap to track the allocated page */
-            spinlock_acquire(&coremap_lock);
+            // Update coremap to reflect the newly allocated page
+            spinlock_acquire(&coremap_lock);  // Acquire lock to ensure exclusive access to coremap
             if (coremap[page_index].entry_type == COREMAP_FREED) {
-                last_allocated_temp = last_allocated_page;
-                current_victim_temp = current_victim_page;
+                // The page was previously freed; we can now allocate it
+                coremap[page_index].entry_type = COREMAP_BUSY_USER;  
+                coremap[page_index].allocation_size = 1;  
+                coremap[page_index].address_space = current_as;  
+                coremap[page_index].virtual_address = associated_vaddr;  
 
-                coremap[page_index].entry_type = COREMAP_BUSY_USER;
-                coremap[page_index].allocation_size = 1;
-                coremap[page_index].address_space = current_as;
-                coremap[page_index].virtual_address = associated_vaddr;
-
-                /* Update the linked list for the allocation queue */
+                // Update the linked list of allocated pages
                 if (last_allocated_temp != invalid_reference) {
-                    coremap[last_allocated_temp].next_allocated = page_index;
-                    coremap[page_index].previous_allocated = last_allocated_temp;
-                    coremap[page_index].next_allocated = invalid_reference;
+                    // There were previously allocated pages
+                    coremap[last_allocated_temp].next_allocated = page_index;  // Link the last allocated page to the new page
+                    coremap[page_index].previous_allocated = last_allocated_temp;  // Set the new page's previous link
+                    coremap[page_index].next_allocated = invalid_reference;  // The new page has no further links
                 } else {
-                    coremap[page_index].previous_allocated = invalid_reference;
-                    coremap[page_index].next_allocated = invalid_reference;
+                    // This is the first allocated page
+                    coremap[page_index].previous_allocated = invalid_reference;  // No previous page
+                    coremap[page_index].next_allocated = invalid_reference;  // No next page
                 }
-                spinlock_release(&coremap_lock);
 
-                spinlock_acquire(&page_replacement_lock);
+                spinlock_release(&coremap_lock);  
+
+                // Update page replacement tracking
+                spinlock_acquire(&page_replacement_lock);  
                 if (current_victim_temp == invalid_reference) {
+                    // This is the only page in the coremap, so it becomes the current victim page
                     current_victim_page = page_index;
                 }
-                last_allocated_page = page_index;
-                spinlock_release(&page_replacement_lock);
+                last_allocated_page = page_index;  // Update the index of the last allocated page
+                spinlock_release(&page_replacement_lock);  
             } else {
-                /* If no free pages, swap out a page */
-                address = (paddr_t)current_victim_temp * PAGE_SIZE;
-                result = swap_out(address, &swapfile_offset);
+                // The page was not free, so we need to swap out a page
+                address = (paddr_t)current_victim_temp * PAGE_SIZE;  // Convert victim page index to physical address
+                result = swap_out(address, &swapfile_offset);  // Swap out the victim page to the swap file
                 if (result) {
-                    panic("Failed to swap out a page to file");
+                    panic("Failed to swap out a page to file");  
                 }
 
-                spinlock_acquire(&coremap_lock);
-                //victim_segment = as_find_segment_coarse(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
-                //KASSERT(victim_segment != NULL);
+                // Update coremap to reflect the swapped-out page
+                spinlock_acquire(&coremap_lock);  
+                KASSERT(coremap[current_victim_temp].entry_type == COREMAP_BUSY_USER);  // Ensure the victim page was in use
+                KASSERT(coremap[current_victim_temp].allocation_size == 1);  // Ensure the victim page size is correct
 
-                //seg_swap_out(victim_segment, swapfile_offset, coremap[current_victim_temp].virtual_address);
+                // Update the coremap entry for the swapped-out page
+                coremap[current_victim_temp].virtual_address = associated_vaddr;  
+                coremap[current_victim_temp].address_space = current_as;  
+                new_victim = coremap[current_victim_temp].next_allocated;  // Save the index of the next victim
 
-                /* Update coremap after swapping */
-                KASSERT(coremap[current_victim_temp].entry_type == COREMAP_BUSY_USER);
-                KASSERT(coremap[current_victim_temp].allocation_size == 1);
+                // Update the linked list of allocated pages
+                coremap[last_allocated_temp].next_allocated = current_victim_temp;  // Link the last allocated page to the victim page
+                coremap[current_victim_temp].next_allocated = invalid_reference;  // The victim page has no further links
+                coremap[current_victim_temp].previous_allocated = last_allocated_temp;  // Set the victim page's previous link
 
-                coremap[current_victim_temp].virtual_address = associated_vaddr;
-                coremap[current_victim_temp].address_space = current_as;
-                new_victim = coremap[current_victim_temp].next_allocated;
+                spinlock_release(&coremap_lock);  
 
-                coremap[last_allocated_temp].next_allocated = current_victim_temp;
-                coremap[current_victim_temp].next_allocated = invalid_reference;
-                coremap[current_victim_temp].previous_allocated = last_allocated_temp;
-                spinlock_release(&coremap_lock);
-
-                spinlock_acquire(&page_replacement_lock);
-                KASSERT(new_victim != invalid_reference);
-                last_allocated_page = current_victim_temp;
-                current_victim_page = new_victim;
-                spinlock_release(&page_replacement_lock);
+                // Update page replacement tracking after swapping
+                spinlock_acquire(&page_replacement_lock);  
+                KASSERT(new_victim != invalid_reference);  // Ensure there is a valid next victim
+                last_allocated_page = current_victim_temp;  // Update the last allocated page to be the victim page
+                current_victim_page = new_victim;  // Update the current victim page index
+                spinlock_release(&page_replacement_lock);  
             }
         }
     }
-    return address;
+    return address;  // Return the physical address of the allocated page
 }
 
 /*
@@ -344,52 +345,59 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
  * Removes the page from the allocation queue and marks it as freed.
  */
 static void free_page_user(paddr_t paddr) {
-    long last_allocated_new, current_victim_new;
+    long last_allocated_new, current_victim_new;  // Temporary variables for the new state of the allocation queue
 
     if (is_coremap_active()) {
-        long page_index = paddr / PAGE_SIZE;
-        KASSERT(total_ram_frames > page_index);
-        KASSERT(coremap[page_index].allocation_size == 1);
+        long page_index = paddr / PAGE_SIZE;  // Compute the index of the page in the coremap
+        KASSERT(total_ram_frames > page_index);  // Ensure the page index is within valid bounds
+        KASSERT(coremap[page_index].allocation_size == 1);  // Ensure the page size is 1
 
-        /* Capture old state for updating allocation queue */
-        spinlock_acquire(&page_replacement_lock);
-        last_allocated_new = last_allocated_page;
-        current_victim_new = current_victim_page;
-        spinlock_release(&page_replacement_lock);
+        // Capture the current state for updating the allocation queue
+        spinlock_acquire(&page_replacement_lock);  
+        last_allocated_new = last_allocated_page;  // Save the index of the last allocated page
+        current_victim_new = current_victim_page;  // Save the index of the current victim page
+        spinlock_release(&page_replacement_lock);  
 
-        /* Update the allocation queue and coremap */
-        spinlock_acquire(&coremap_lock);
+        // Update the allocation queue and coremap
+        spinlock_acquire(&coremap_lock);  
         if (coremap[page_index].previous_allocated == invalid_reference) {
+            // The page is the first in the allocation queue
             if (coremap[page_index].next_allocated == invalid_reference) {
-                current_victim_new = invalid_reference;
-                last_allocated_new = invalid_reference;
+                // The page is the only page in the queue
+                current_victim_new = invalid_reference;  // No more victim pages
+                last_allocated_new = invalid_reference;  // No more allocated pages
             } else {
-                KASSERT(page_index == current_victim_new);
-                coremap[coremap[page_index].next_allocated].previous_allocated = invalid_reference;
-                current_victim_new = coremap[page_index].next_allocated;
+                // Update the queue to remove the page
+                KASSERT(page_index == current_victim_new);  // The page being freed is the current victim
+                coremap[coremap[page_index].next_allocated].previous_allocated = invalid_reference;  // Update the next page's previous link
+                current_victim_new = coremap[page_index].next_allocated;  // Set the new current victim page
             }
         } else {
             if (coremap[page_index].next_allocated == invalid_reference) {
-                KASSERT(page_index == last_allocated_new);
-                coremap[coremap[page_index].previous_allocated].next_allocated = invalid_reference;
-                last_allocated_new = coremap[page_index].previous_allocated;
+                // The page is the last in the allocation queue
+                KASSERT(page_index == last_allocated_new);  // The page being freed is the last allocated page
+                coremap[coremap[page_index].previous_allocated].next_allocated = invalid_reference;  // Update the previous page's next link
+                last_allocated_new = coremap[page_index].previous_allocated;  // Set the new last allocated page
             } else {
-                coremap[coremap[page_index].next_allocated].previous_allocated = coremap[page_index].previous_allocated;
+                // The page is in the middle of the allocation queue
+                coremap[coremap[page_index].next_allocated].previous_allocated = coremap[page_index].previous_allocated;  // Update links
                 coremap[coremap[page_index].previous_allocated].next_allocated = coremap[page_index].next_allocated;
             }
         }
 
-        coremap[page_index].next_allocated = invalid_reference;
-        coremap[page_index].previous_allocated = invalid_reference;
-        spinlock_release(&coremap_lock);
+        // Mark the page as freed in the coremap
+        coremap[page_index].next_allocated = invalid_reference;  // No further links in the queue
+        coremap[page_index].previous_allocated = invalid_reference;  // No previous links in the queue
+        spinlock_release(&coremap_lock);  
 
-        /* Free the page in coremap */
-        free_pages(paddr, 1);
+        // Free the page
+        free_pages(paddr, 1);  // Mark the page as available
 
-        spinlock_acquire(&page_replacement_lock);
-        current_victim_page = current_victim_new;
-        last_allocated_page = last_allocated_new;
-        spinlock_release(&page_replacement_lock);
+        // Update the page replacement tracking
+        spinlock_acquire(&page_replacement_lock); 
+        current_victim_page = current_victim_new;  // Update the current victim page
+        last_allocated_page = last_allocated_new;  // Update the last allocated page
+        spinlock_release(&page_replacement_lock);  
     }
 }
 
