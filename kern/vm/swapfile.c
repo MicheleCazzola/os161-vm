@@ -12,7 +12,6 @@
 #include <bitmap.h>
 #include <swapfile.h>
 #include <vmstats.h>
-#include "opt-paging.h"
 
 #define SWAP_DEBUG 0 /* Enable this to fill the swap file with zeroes for debugging */
 

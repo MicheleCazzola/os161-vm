@@ -13,7 +13,6 @@
 #include <pagevm.h>
 #include <coremap.h>
 #include <swapfile.h>
-#include "opt-paging.h"
 
 /**
  * Coremap management for handling physical memory pages.
@@ -30,7 +29,7 @@ static struct spinlock page_replacement_lock = SPINLOCK_INITIALIZER; /* Lock for
 /* Coremap structure and related variables */
 static struct coremap_entry *coremap = NULL; /* Coremap array to track pages */
 static int total_ram_frames = 0; /* Total number of RAM frames */
-static int is_coremap_initialized = 0; /* Flag to check if coremap is initialized */
+static bool is_coremap_initialized = false; /* Flag to check if coremap is initialized */
 
 /* Linked list variables for page replacement strategy */
 static unsigned long invalid_reference = 0; /* Indicates an invalid reference */
@@ -41,8 +40,8 @@ static unsigned long current_victim_page = 0; /* Refers to the current page sele
  * Checks if the coremap is initialized by examining the is_coremap_initialized 'shared' variable.
  * Returns 1 if initialized, 0 otherwise.
  */
-static int is_coremap_active() {
-    int active;
+static bool is_coremap_active() {
+    bool active;
     spinlock_acquire(&coremap_lock);
     active = is_coremap_initialized;
     spinlock_release(&coremap_lock);
@@ -83,7 +82,7 @@ void coremap_init(void) {
 
     /* Set coremap as initialized */
     spinlock_acquire(&coremap_lock);
-    is_coremap_initialized = 1;
+    is_coremap_initialized = true;
     spinlock_release(&coremap_lock);
 }
 
@@ -132,8 +131,7 @@ static paddr_t allocate_free_pages(unsigned long npages,
         /* Allocate the block of pages */
         for (i = found_block_start; i < found_block_start + pages_needed; i++) {
             coremap[i].entry_type = entry_type;
-            coremap[i].allocation_size = (entry_type == COREMAP_BUSY_KERNEL) ? npages : 0; //if it is not busy for kernel processes, it is useless to keep track of allocation size (only kernel requests for multiple contiguous pages)
-
+            
             if (entry_type == COREMAP_BUSY_USER) {
                 coremap[i].address_space = as;
                 coremap[i].virtual_address = vaddr;
@@ -144,6 +142,7 @@ static paddr_t allocate_free_pages(unsigned long npages,
                 return EINVAL;
             }
         }
+        coremap[found_block_start].allocation_size = npages; //if it is not busy for kernel processes, it is useless to keep track of allocation size (only kernel requests for multiple contiguous pages)
         address = (paddr_t)found_block_start * PAGE_SIZE;
     } else {
         address = 0;

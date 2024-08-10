@@ -52,7 +52,13 @@ struct bitmap {
         WORD_TYPE *v;
 };
 
-
+/**
+ * Creates a new bitmap structure to manage a specified number of bits.
+ * Allocates memory for the bitmap structure and initializes all bits to 0 (cleared).
+ *
+ * @param nbits The number of bits in the bitmap.
+ * @return      Pointer to the created bitmap structure, or NULL on failure.
+ */
 struct bitmap *
 bitmap_create(unsigned nbits)
 {
@@ -89,12 +95,26 @@ bitmap_create(unsigned nbits)
         return b;
 }
 
+/**
+ * Returns a pointer to the raw data of the bitmap.
+ * Useful for operations that need direct access to the bitmap data.
+ *
+ * @param b The bitmap to access.
+ * @return  Pointer to the bitmap's raw data.
+ */
 void *
 bitmap_getdata(struct bitmap *b)
 {
         return b->v;
 }
 
+/**
+ * Allocates (sets) the first free bit in the bitmap and returns its index.
+ *
+ * @param b     The bitmap to modify.
+ * @param index A pointer to store the index of the allocated bit.
+ * @return      0 on success, or ENOSPC if no free bits are available.
+ */
 int
 bitmap_alloc(struct bitmap *b, unsigned *index)
 {
@@ -120,6 +140,15 @@ bitmap_alloc(struct bitmap *b, unsigned *index)
         return ENOSPC;
 }
 
+/**
+ * Translates a bit index into its corresponding word index and bitmask
+ * within the bitmap. This is a helper function used internally by
+ * other bitmap functions.
+ *
+ * @param bitno The index of the bit.
+ * @param ix    Pointer to store the corresponding word index.
+ * @param mask  Pointer to store the corresponding bitmask.
+ */
 static
 inline
 void
@@ -131,6 +160,12 @@ bitmap_translate(unsigned bitno, unsigned *ix, WORD_TYPE *mask)
         *mask = ((WORD_TYPE)1) << offset;
 }
 
+/**
+ * Marks (sets) the bit at the specified index in the bitmap.
+ *
+ * @param b     The bitmap to modify.
+ * @param index The index of the bit to set.
+ */
 void
 bitmap_mark(struct bitmap *b, unsigned index)
 {
@@ -144,6 +179,12 @@ bitmap_mark(struct bitmap *b, unsigned index)
         b->v[ix] |= mask;
 }
 
+/**
+ * Unmarks (clears) the bit at the specified index in the bitmap.
+ *
+ * @param b     The bitmap to modify.
+ * @param index The index of the bit to clear.
+ */
 void
 bitmap_unmark(struct bitmap *b, unsigned index)
 {
@@ -157,7 +198,13 @@ bitmap_unmark(struct bitmap *b, unsigned index)
         b->v[ix] &= ~mask;
 }
 
-
+/**
+ * Checks if the bit at the specified index in the bitmap is set.
+ *
+ * @param b     The bitmap to check.
+ * @param index The index of the bit to check.
+ * @return      Non-zero if the bit is set (1), or 0 if the bit is clear (0).
+ */
 int
 bitmap_isset(struct bitmap *b, unsigned index)
 {
@@ -168,6 +215,11 @@ bitmap_isset(struct bitmap *b, unsigned index)
         return (b->v[ix] & mask);
 }
 
+/**
+ * Destroys the bitmap and frees the associated memory.
+ *
+ * @param b The bitmap to destroy.
+ */
 void
 bitmap_destroy(struct bitmap *b)
 {
