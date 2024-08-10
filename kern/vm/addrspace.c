@@ -27,6 +27,12 @@
  * SUCH DAMAGE.
  */
 
+
+/**
+ * Authors: Filippo Forte - 2024
+ * Memory allocator based on demand paging
+ */
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -34,6 +40,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <spl.h>
 #include <vm_tlb.h>
 #include "opt-paging.h"
 
@@ -91,77 +98,188 @@ void as_destroy(addrspace_t *as){
 	kfree(as);
 }
 
-int as_copy(addrspace_t *old, addrspace_t **ret){
-	addrspace_t *newas;
 
-	newas = as_create();
-	if (newas==NULL) {
+// Function to activate an address space
+void as_activate(void)
+{
+    addrspace_t *as;
+
+    // Get the current process's address space
+    as = proc_getas();
+    if (as == NULL) {
+        /*
+         * Kernel thread without an address space; leave the
+         * prior address space in place.
+         */
+        return;
+    }
+
+    #if OPT_PAGING
+    int spl;
+
+    // Disable interrupts
+    spl = splhigh();
+
+    // Initialize the TLB (Translation Lookaside Buffer)
+    vm_tlb_init();
+
+    // Restore interrupt state
+    splx(spl);
+    #endif
+}
+
+
+// Function to deactivate an address space
+void as_deactivate(void)
+{
+    /*
+     * Write this. For many designs it won't need to actually do
+     * anything. See proc.c for an explanation of why it (might)
+     * be needed.
+     */
+}
+
+
+// Function to copy an address space
+int as_copy(addrspace_t *old_as, addrspace_t **ret){
+    addrspace_t *new_as;
+
+    #if OPT_PAGING
+        KASSERT(old_as != NULL);
+        KASSERT(old_as->seg_code != NULL);
+        KASSERT(old_as->seg_data != NULL);
+        KASSERT(old_as->seg_stack != NULL);
+    #endif
+
+    // Create a new address space
+    new_as = as_create();
+    if (new_as == NULL) {
+        return ENOMEM;
+    }
+
+    #if OPT_PAGING
+    // Copy the code segment, destroy the new address space if it fails
+    if (!seg_copy(old_as->seg_code, &(new_as->seg_code))) {
+        as_destroy(new_as);
+        return ENOMEM;
+    }
+
+    // Copy the data segment, destroy the new segments and address space if it fails
+    if (!seg_copy(old_as->seg_data, &(new_as->seg_data))) {
+        seg_destroy(new_as->seg_code);
+        as_destroy(new_as);
+        return ENOMEM;
+    }
+
+    // Copy the stack segment, destroy the new segments and address space if it fails
+    if (!seg_copy(old_as->seg_stack, &(new_as->seg_stack))) {
+        seg_destroy(new_as->seg_code);
+        seg_destroy(new_as->seg_data);
+        as_destroy(new_as);
+        return ENOMEM;
+    }
+    #endif
+
+    // Set the return pointer to the new address space
+    *ret = new_as;
+    return 0;
+}
+
+
+int as_prepare_load(addrspace_t *as)
+{
+#if OPT_PAGING
+
+	if (seg_prepare(as->seg_code) != 0)
+	{
 		return ENOMEM;
 	}
 
-	/*
-	 * Write this.
-	 */
+	if (seg_prepare(as->seg_data) != 0)
+	{
+		return ENOMEM;
+	}
+#endif 
 
-	(void)old;
-
-	*ret = newas;
 	return 0;
 }
 
 
-void
-as_activate(void)
+int as_complete_load(addrspace_t *as)
 {
-	addrspace_t *as;
 
-	as = proc_getas();
-	if (as == NULL) {
-		/*
-		 * Kernel thread without an address space; leave the
-		 * prior address space in place.
-		 */
-		return;
-	}
-
-	#if OPT_PAGING
-
-	vm_tlb_init();
-
-	#endif
-
-	/*
-	 * Write this.
-	 */
+	(void)as;
+	return 0;
 }
 
-void
-as_deactivate(void)
-{
-	/*
-	 * Write this. For many designs it won't need to actually do
-	 * anything. See proc.c for an explanation of why it (might)
-	 * be needed.
-	 */
-}
 
 /*
- * Set up a segment at virtual address VADDR of size MEMSIZE. The
- * segment in memory extends from VADDR up to (but not including)
- * VADDR+MEMSIZE.
+ * Set up a memory segment at the virtual address VADDR with a size of MEMSIZE.
+ * The segment in memory will range from VADDR up to (but not including) VADDR + MEMSIZE.
  *
- * The READABLE, WRITEABLE, and EXECUTABLE flags are set if read,
- * write, or execute permission should be set on the segment. At the
- * moment, these are ignored. When you write the VM system, you may
- * want to implement them.
+ * The flags READABLE, WRITEABLE, and EXECUTABLE are set if the segment should 
+ * have read, write, or execute permissions, respectively. These flags are currently 
+ * placeholders and are not yet implemented. When implementing the VM system, these 
+ * flags may be used to enforce specific permissions.
  */
-int
-as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
-		 int readable, int writeable, int executable)
+#if OPT_PAGING
+
+int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize, size_t file_size,
+                     off_t offset, struct vnode *v, int readable, int writeable, int executable)
 {
-	/*
-	 * Write this.
-	 */
+    size_t npages;
+
+    // Ensure the address space and vnode are valid
+    KASSERT(as != NULL);
+    KASSERT(v != NULL);
+
+    /* 
+     * Compute the number of pages needed for the segment.
+     * First, account for any offset within the first page.
+     * Then, round up the size to the nearest page boundary.
+     */
+    npages = memsize + (vaddr & ~(vaddr_t)PAGE_FRAME);   // Add offset within the first page
+    npages = (npages + PAGE_SIZE - 1) & PAGE_FRAME;      // Round up to the nearest page
+    npages = npages / PAGE_SIZE;                         // Calculate the total number of pages
+	
+
+    // If the code segment is not defined, create and define it
+    if (as->seg_code == NULL)
+    {
+        as->seg_code = seg_create();  // Create a new segment for code
+        if (as->seg_code == NULL)
+        {
+            return ENOMEM;  // Return if memory allocation fails
+        }
+        seg_define(as->seg_code, vaddr, file_size, offset, memsize, npages, v, readable, writeable, executable);
+        return 0;
+    }
+
+    // If the data segment is not defined, create and define it
+    if (as->seg_data == NULL)
+    {
+        as->seg_data = seg_create();  // Create a new segment for data
+        if (as->seg_data == NULL)
+        {
+            return ENOMEM;  // Return if memory allocation fails
+        }
+        seg_define(as->seg_data, vaddr, file_size, offset, memsize, npages, v, readable, writeable, executable);
+        return 0;
+    }
+
+    /*
+     * Currently, support for more than two regions (code and data) is not implemented.
+     * If an attempt is made to define more than two regions, a warning is issued.
+     */
+    kprintf("paging: Warning: too many regions\n");
+
+    return ENOSYS;  // Return a 'function not implemented' error code
+}
+
+#else
+
+int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,int readable, int writeable, int executable)
+{
 
 	(void)as;
 	(void)vaddr;
@@ -169,33 +287,16 @@ as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
+
+
 	return ENOSYS;
 }
 
-int
-as_prepare_load(addrspace_t *as)
-{
-	/*
-	 * Write this.
-	 */
+#endif
 
-	(void)as;
-	return 0;
-}
 
-int
-as_complete_load(addrspace_t *as)
-{
-	/*
-	 * Write this.
-	 */
 
-	(void)as;
-	return 0;
-}
-
-int
-as_define_stack(addrspace_t *as, vaddr_t *stackptr)
+int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 {
 	/*
 	 * Write this.
@@ -209,3 +310,16 @@ as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 	return 0;
 }
 
+
+#if OPT_PAGING
+ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
+{
+
+    (void)as;
+    (void)vaddr;
+
+    return NULL;
+
+}
+
+#endif

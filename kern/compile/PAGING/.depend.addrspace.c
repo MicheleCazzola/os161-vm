@@ -6,4 +6,5 @@ addrspace.o: ../../vm/addrspace.c ../../include/types.h \
  ../../include/vm.h includelinks/machine/vm.h ../../include/segment.h \
  ../../include/pt.h opt-dumbvm.h opt-paging.h ../../include/proc.h \
  ../../include/spinlock.h ../../include/hangman.h opt-hangman.h \
- includelinks/machine/spinlock.h opt-waitpid.h ../../include/vm_tlb.h
+ includelinks/machine/spinlock.h opt-waitpid.h ../../include/spl.h \
+ ../../include/vm_tlb.h

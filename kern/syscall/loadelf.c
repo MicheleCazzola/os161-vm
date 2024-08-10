@@ -28,6 +28,12 @@
  */
 
 
+/**
+ * Authors: Filippo Forte - 2024
+ * Memory allocator based on demand paging
+ */
+
+
 /*
  * Code to load an ELF-format executable into the current address space.
  *
@@ -59,7 +65,9 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <elf.h>
+#include <opt-paging.h>
 
+#if !OPT_PAGING
 /*
  * Load a segment at virtual address VADDR. The segment in memory
  * extends from VADDR up to (but not including) VADDR+MEMSIZE. The
@@ -144,6 +152,7 @@ load_segment(addrspace_t *as, struct vnode *v,
 
 	return result;
 }
+#endif
 
 /*
  * Load an ELF executable user program into the current address space.
@@ -243,21 +252,34 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return ENOEXEC;
 		}
 
+		#if OPT_PAGING
+		result = as_define_region(as,
+					  ph.p_vaddr, ph.p_memsz,
+					  ph.p_filesz,
+					  ph.p_offset,
+					  v,
+					  ph.p_flags & PF_R,
+					  ph.p_flags & PF_W,
+					  ph.p_flags & PF_X);
+		#else
 		result = as_define_region(as,
 					  ph.p_vaddr, ph.p_memsz,
 					  ph.p_flags & PF_R,
 					  ph.p_flags & PF_W,
 					  ph.p_flags & PF_X);
+		#endif 
 		if (result) {
 			return result;
 		}
 	}
+	
 
 	result = as_prepare_load(as);
 	if (result) {
 		return result;
 	}
 
+	#if !OPT_PAGING
 	/*
 	 * Now actually load each segment.
 	 */
@@ -295,6 +317,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return result;
 		}
 	}
+	#endif
 
 	result = as_complete_load(as);
 	if (result) {

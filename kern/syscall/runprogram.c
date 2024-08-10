@@ -27,6 +27,13 @@
  * SUCH DAMAGE.
  */
 
+
+/**
+ * Authors: Filippo Forte - 2024
+ * Memory allocator based on demand paging
+ */
+
+
 /*
  * Sample/test code for running a user program.  You can use this for
  * reference when implementing the execv() system call. Remember though
@@ -44,6 +51,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include <opt-paging.h>
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -87,8 +95,10 @@ runprogram(char *progname)
 		return result;
 	}
 
-	/* Done with the file now. */
-	vfs_close(v);
+	//file reference needed for demand paging
+	#if !OPT_PAGING
+		vfs_close(v);
+	#endif
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
