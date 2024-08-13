@@ -28,7 +28,7 @@
   5. Effettuare di nuovo il punto 3
 
 #### Page table
-IPT + hash
+Per-process page table, con una PT "segmentata"
 
 #### Files/directories
 - kern/vm: 
