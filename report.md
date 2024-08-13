@@ -17,8 +17,129 @@ La comunicazione è avvenuta principalmente con videochiamate a cadenza settiman
 ### Gestore della memoria (pagevm)
 
 ### Segmento
+Un processo è costituito da diversi segmenti, che sono aree di memoria aventi una semantica comune; nel nostro caso, ogni processo ha tre segmenti:
+- codice: contiene il codice dell'eseguibile, è read-only; 
+- dati: contiene le variabili globali, è read-write;
+- stack: contiene gli stack frame delle funzioni chiamate durante l'esecuzione del processo, è read-write.
+
+Essi non sono necessariamente contigui in memoria fisica, pertanto una soluzione è data dalla realizzazione di una page table per ognuno di essi.
+#### Strutture dati
+La struttura dati che rappresenta il singolo segmento è definita in _segment.h_ ed è la seguente:
+```C
+typedef struct  {
+    seg_permissions_t permissions;
+    size_t seg_size_bytes;
+    off_t file_offset;
+    vaddr_t base_vaddr;
+    size_t num_pages;
+    size_t seg_size_words;
+    struct vnode *elf_vnode;
+    pt_t *page_table;
+} ps_t;
+```
+I campi hanno il significato seguente:
+- _permissions_: permessi associati al segmento, definiti dal tipo enumerativo:
+```C
+typedef enum {
+    PAGE_RONLY,     /* 0: read-only */
+    PAGE_RW,        /* 1: read-write */
+    PAGE_EXE,       /* 2: executable */
+    PAGE_STACK      /* 3: stack */
+} seg_permissions_t;
+```
+- _seg_size_bytes_: dimensione del segmento nell'eseguibile, in bytes;
+- _file_offset_: offset del segmento all'interno dell'eseguibile;
+- _base_vaddr_: indirizzo virtuale iniziale del segmento;
+- _num_pages_: numero di pagine occupate dal segmento, in memoria;
+- _seg_size_words_: numero di parole di memoria occupate dal segmento;
+- _elf_vnode_: puntatore al vnode del file eseguibile a cui il segmento appartiene;
+- _page_table_: puntatore alla page table associata al segmento
+
+Nel caso in cui la dimensione effettiva del segmento sia inferiore a quella occupata dal numero di pagine necessarie a salvarlo in memoria (ovvero in presenza di frammentazione interna), il residuo viene
+completamente azzerato.
+
+#### Implementazione
 
 ### Page table
+Come detto in precedenza, sono presenti tre page table per ogni processo, una per ognuno dei tre segmenti che li costituiscono; per questa ragione, non sono necessarie forme di locking, in quanto la page table
+non è una risorsa condivisa tra diversi processi, ma propria di un singolo processo.
+
+#### Strutture dati
+La struttura dati utilizzata per rappresentare la page table è definita in _pt.h_ ed è la seguente:
+```C
+typedef struct {
+    unsigned long num_pages;
+    vaddr_t base_vaddr;
+    paddr_t *page_buffer;
+} pt_t;
+```
+i cui campi hanno il significato seguente:
+- _num_pages_: numero di pagine all'interno della page table;
+- _base_vaddr_: indirizzo virtuale iniziale della page table, corrisponde con l'indirizzo virtuale di base del segmento e serve per calcolare la pagina di appartenenza di un indirizzo virtuale richiesto;
+- _page_buffer_: vettore di indirizzi fisici delle pagine rappresentate, allocato dinamicamente in fase di creazione della page table.
+
+Ogni entry della page table (ovvero ogni singolo elemento del buffer di pagine) può assumere i seguenti valori:
+- PT_EMPTY_ENTRY (0): poiché 0 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una entry vuota, ovvero una pagina non ancora caricata in memoria;
+- PT_SWAPPED_ENTRY (1): poiché 1 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una pagina di cui è stato effettuato swap out; dei 31 bit rimanenti, i meno significativi
+  vengono utilizzati per rappresentare l'offset della pagina nello swapfile (esso ha dimensione 9 MB, pertanto sarebbero sufficienti 24 bit);
+- altri valori: in questo caso è presente un indirizzo fisico valido per la pagina, ovvero essa è presente in memoria e non è avvenuto un page fault.
+
+### TLB
+Il modulo _vm_tlb.c_ (e relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, solo funzioni che svolgono funzione di wrapper (o poco
+più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
+
+#### Implementazione
+
+### Statistiche
+Il modulo _vmstats.c_ (e relativo header file) contiene le strutture dati e le funzioni per la gestione delle statistiche relative al gestore della memoria.
+
+#### Strutture dati
+Le strutture dati sono definite in _vmstats.c_, per poter implementare _information hiding_, accedendovi soltanto con funzioni esposte all'esterno. Esse sono:
+```C
+bool vmstats_active = false;
+struct spinlock vmstats_lock;
+
+unsigned int vmstats_counts[VMSTATS_NUM];
+
+static const char *vmstats_names[VMSTATS_NUM] = {
+    "TLB faults",                   /* 0: TLB misses */
+    "TLB faults with free",         /* 1: TLB misses with no replacement */
+    "TLB faults with replace",      /* 2: TLB misses with replacement */
+    "TLB invalidations",            /* 3: TLB invalidations (not number of entries, only number of times) */
+    "TLB reloads",                  /* 4: TLB misses for pages stored in memory */
+    "Page faults (zeroed)",         /* 5: TLB misses that requires a new zero-filled page allocation */
+    "Page faults (disk)",           /* 6: TLB misses that requires a page to be loaded from disk */
+    "Page faults from ELF",         /* 7: page faults that require loading a page from ELF file */
+    "Page faults from swapfile",    /* 8: page faults that require loading a page from swapfile */
+    "Swapfile writes"               /* 9: page faults that require writing a page on swapfile */
+};
+```
+nell'ordine:
+- _vmstats_active_: flag per indicare se il modulo è attivo (ovvero i contatori sono stati inizializzati opportunamente);
+- _vmstats_lock_: spinlock per l'accesso in mutua esclusione, necessario in quanto tale modulo (con le sue strutture dati) è condiviso a tutti i processi e richiede che gli incrementi siano indipendenti;
+- _vmstats_counts_: vettore di contatori, uno per ogni statistica;
+- _vmstats_names_: vettore di stringhe, contenenti i nomi delle statistiche da collezionare, utile in fase di stampa
+
+Nell'header file (_vmstats.h_) sono invece definiti:
+```C
+#define VMSTATS_NUM 10
+
+enum vmstats_counters {
+    VMSTAT_TLB_MISS,
+    VMSTAT_TLB_MISS_FREE,
+    VMSTAT_TLB_MISS_REPLACE,
+    VMSTAT_TLB_INVALIDATION,
+    VMSTAT_TLB_RELOAD,
+    VMSTAT_PAGE_FAULT_ZERO,
+    VMSTAT_PAGE_FAULT_DISK,
+    VMSTAT_PAGE_FAULT_ELF,
+    VMSTAT_PAGE_FAULT_SWAPFILE,
+    VMSTAT_SWAPFILE_WRITE
+};
+```
+ovvero:
+- _VMSTATS_NUM_: il numero di statistiche da collezionare;
+- _vmstats_counters_: i nomi delle statistiche da collezionare, utilizzati come indice in _vmstats_counts_ e _vmstats_names_, esposti all'esterno per poter essere utilizzati nell'invocazione della funzione di incremento
 
 ### Coremap
 
