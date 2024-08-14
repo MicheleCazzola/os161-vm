@@ -102,16 +102,16 @@ struct spinlock vmstats_lock;
 unsigned int vmstats_counts[VMSTATS_NUM];
 
 static const char *vmstats_names[VMSTATS_NUM] = {
-    "TLB faults",                   /* 0: TLB misses */
-    "TLB faults with free",         /* 1: TLB misses with no replacement */
-    "TLB faults with replace",      /* 2: TLB misses with replacement */
-    "TLB invalidations",            /* 3: TLB invalidations (not number of entries, only number of times) */
-    "TLB reloads",                  /* 4: TLB misses for pages stored in memory */
-    "Page faults (zeroed)",         /* 5: TLB misses that requires a new zero-filled page allocation */
-    "Page faults (disk)",           /* 6: TLB misses that requires a page to be loaded from disk */
-    "Page faults from ELF",         /* 7: page faults that require loading a page from ELF file */
-    "Page faults from swapfile",    /* 8: page faults that require loading a page from swapfile */
-    "Swapfile writes"               /* 9: page faults that require writing a page on swapfile */
+    "TLB faults",                 /* TLB misses */
+    "TLB faults with free",       /* TLB misses with no replacement */
+    "TLB faults with replace",    /* TLB misses with replacement */
+    "TLB invalidations",          /* TLB invalidations (number of times) */
+    "TLB reloads",                /* TLB misses for pages stored in memory */
+    "Page faults (zeroed)",       /* TLB misses requiring zero-filled page */
+    "Page faults (disk)",         /* TLB misses requiring load from disk */
+    "Page faults from ELF",       /* Page faults requiring load from ELF */
+    "Page faults from swapfile",  /* Page faults requiring load from swapfile */
+    "Swapfile writes"             /* Page faults requiring write on swapfile */
 };
 ```
 nell'ordine:
@@ -140,6 +140,18 @@ enum vmstats_counters {
 ovvero:
 - _VMSTATS_NUM_: il numero di statistiche da collezionare;
 - _vmstats_counters_: i nomi delle statistiche da collezionare, utilizzati come indice in _vmstats_counts_ e _vmstats_names_, esposti all'esterno per poter essere utilizzati nell'invocazione della funzione di incremento
+
+#### Implementazione
+Le funzioni implementate in questo modulo hanno i prototipi seguenti:
+```C
+void vmstats_init(void);
+void vmstats_increment(unsigned int stat_index);
+void vmstats_show(void);
+```
+Esse non svolgono compiti particolarmente complessi:
+- _vmstats_init_: inizializza il flag _vmstats_active_, dopo aver azzerato tutti i contatori in _vmstats_counts_; viene invocata al bootstrap del gestore della memoria virtuale;
+- _vmstats_increment_: incrementa di un'unità la statistica associata all'indice fornito come parametro, effettuando il conteggio;
+- _vmstats_show_: stampa, per ogni statistica, il valore di conteggio associato, mostrando eventuali messaggi di warning qualora le relazioni presenti tra le statistiche non fossero rispettate; viene invocata allo shutdown del gestore della memoria virtuale.
 
 ### Coremap
 
