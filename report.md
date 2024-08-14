@@ -85,10 +85,10 @@ Ogni entry della page table (ovvero ogni singolo elemento del buffer di pagine) 
 - altri valori: in questo caso è presente un indirizzo fisico valido per la pagina, ovvero essa è presente in memoria e non è avvenuto un page fault.
 
 ### TLB
-Il modulo _vm_tlb.c_ (e relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, solo funzioni che svolgono funzione di wrapper (o poco
-più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
+Il modulo _vm_tlb.c_ (e relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, solo funzioni che svolgono funzione di wrapper (o poco più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
 
 #### Implementazione
+
 
 ### Statistiche
 Il modulo _vmstats.c_ (e relativo header file) contiene le strutture dati e le funzioni per la gestione delle statistiche relative al gestore della memoria.
@@ -152,6 +152,8 @@ Esse non svolgono compiti particolarmente complessi:
 - _vmstats_init_: inizializza il flag _vmstats_active_, dopo aver azzerato tutti i contatori in _vmstats_counts_; viene invocata al bootstrap del gestore della memoria virtuale;
 - _vmstats_increment_: incrementa di un'unità la statistica associata all'indice fornito come parametro, effettuando il conteggio;
 - _vmstats_show_: stampa, per ogni statistica, il valore di conteggio associato, mostrando eventuali messaggi di warning qualora le relazioni presenti tra le statistiche non fossero rispettate; viene invocata allo shutdown del gestore della memoria virtuale.
+
+Ogni operazione effettuata all'interno delle funzioni di inizializzazione e incremento è protetta da spinlock, in quanto richiede accesso in mutua esclusione, poiché si realizzano scritture su dati condivisi; la funzione di stampa effettua solo letture, pertanto non richiede l'utilizzo di forme di locking.
 
 ### Coremap
 
