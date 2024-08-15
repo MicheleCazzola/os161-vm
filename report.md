@@ -2,8 +2,8 @@
 ## Introduzione
 Il progetto svolto riguarda la realizzazione di un gestore della memoria virtuale, che sfrutti il demand paging e il loading dinamico; il suo nome è _pagevm_, come si nota da uno dei file presenti nel progetto.
 I file aggiunti alla configurazione DUMBVM seguono le indicazioni fornite nella traccia del progetto, a cui si aggiunge il file pagevm.c (e relativo header file), contenente le funzioni di base per la gestione della memoria (dettagliate in seguito).
-## Composizione e suddivisione carichi di lavoro
 
+## Composizione e suddivisione carichi di lavoro
 Il carico di lavoro è stato suddiviso in maniera abbastanza netta tra i componenti del gruppo, sfruttando Git:
 - Filippo Forte: address space e gestore della memoria, modifica a file già esistenti nella configurazione DUMBVM;
 - Michele Cazzola: segmenti, page table, statistiche e astrazione per il TLB, con wrapper per funzioni già esistenti;
@@ -11,7 +11,13 @@ Il carico di lavoro è stato suddiviso in maniera abbastanza netta tra i compone
 
 La comunicazione è avvenuta principalmente con videochiamate a cadenza settimanale, di durata pari a 2-3 ore ciascuna, durante le quali si è discusso il lavoro fatto ed è stato pianificato quello da svolgere.
 
-## Implementazione
+## Architettura del progetto
+Il progetto è stato realizzato utilizzando una _layer architecture_, con rare eccezioni, per cui ogni modulo fornisce astrazioni di un livello specifico, con dipendenze (quasi) unidirezionali. La descrizione dei moduli segue il loro livello di astrazione:
+- ad alto livello, si interfacciano con moduli già esistenti, tra cui _runprogram.c_, _loadelf.c_, _main.c_, _trap.c_;
+- ai livelli inferiori, forniscono servizi intermedi: segmento e page table sono dipendenze dell'address space (uno direttamente, l'altro indirettamente), coremap è dipendenza di diversi moduli (tra cui page table e quelli di livello superiore), analogamente a swapfile;
+- altri sono moduli ausiliari: l'astrazione per il TLB è utilizzata in diversi moduli per accedere alle sue funzionalità, le statistiche sono calcolate solo invocando funzioni di interfaccia. 
+
+## Codice sorgente
 ### Address space
 
 ### Gestore della memoria (pagevm)
@@ -22,7 +28,7 @@ Un processo è costituito da diversi segmenti, che sono aree di memoria aventi u
 - dati: contiene le variabili globali, è read-write;
 - stack: contiene gli stack frame delle funzioni chiamate durante l'esecuzione del processo, è read-write.
 
-Essi non sono necessariamente contigui in memoria fisica, pertanto una soluzione è data dalla realizzazione di una page table per ognuno di essi.
+Essi non sono necessariamente contigui in memoria fisica, pertanto la soluzione adottata è la realizzazione di una page table per ognuno di essi; il numero di pagine necessarie è calcolato a valle della lettura dell'eseguibile, tranne che nel caso dello stack, in cui è costante.
 #### Strutture dati
 La struttura dati che rappresenta il singolo segmento è definita in _segment.h_ ed è la seguente:
 ```C
@@ -51,7 +57,7 @@ typedef enum {
 - _file_offset_: offset del segmento all'interno dell'eseguibile;
 - _base_vaddr_: indirizzo virtuale iniziale del segmento;
 - _num_pages_: numero di pagine occupate dal segmento, in memoria;
-- _seg_size_words_: numero di parole di memoria occupate dal segmento;
+- _seg_size_words_: memoria occupata dal segmento, considerando le parole intere;
 - _elf_vnode_: puntatore al vnode del file eseguibile a cui il segmento appartiene;
 - _page_table_: puntatore alla page table associata al segmento
 
@@ -59,6 +65,56 @@ Nel caso in cui la dimensione effettiva del segmento sia inferiore a quella occu
 completamente azzerato.
 
 #### Implementazione
+Le funzioni di questo modulo si occupano di svolgere operazioni a livello segmento, eventualmente agendo da semplici wrapper per funzioni di livello inferiore. Esse sono utilizzate all'interno dei moduli _addrspace_ o _pagevm_; i prototipi sono i seguenti:
+```C
+ps_t *seg_create(void);
+int seg_define(
+    ps_t *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
+    size_t num_pages, size_t seg_size_words, struct vnode *elf_vnode, char read, char write, char execute
+);
+int seg_define_stack(ps_t *proc_seg, vaddr_t base_vaddr, size_t num_pages);
+int seg_prepare(ps_t *proc_seg);
+int seg_copy(ps_t *src, ps_t **dest);
+paddr_t seg_get_paddr(ps_t *proc_seg, vaddr_t vaddr);
+void seg_add_pt_entry(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr);
+int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr);
+void seg_swap_out(ps_t *proc_seg, off_t swapfile_offset, vaddr_t vaddr);
+void seg_swap_in(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr);
+void seg_destroy(ps_t *proc_seg);
+```
+
+##### Creazione e distruzione
+Si utilizzano le funzioni:
+- _seg_create_: crea un nuovo segmento, allocando la memoria necessaria mediante _kmalloc_ e azzerandone tutti i campi, viene invocata alla creazione di un address space;
+- _seg_destroy_: distrugge il segmento dato, liberando anche la memoria detenuta dalla propria page table, viene invocata alla distruzione dell'address space a cui il segmento appartiene.
+
+##### Definizione, preparazione e copia
+Si utilizzano le funzioni:
+- _seg_define_: definisce il valore dei campi del segmento dato, utilizzando i parametri passati dal chiamante (ovvero _as_define_region_); essi non includono informazioni riguardanti la page table, che viene definita in seguito; tale funzione è utilizzata solo per le regioni di codice e dati, non per lo stack;
+- _seg_define_stack_: come la precedente, ma utilizzata solo per lo stack e invocata da _as_define_stack_; per la natura dello stack:
+    * esso non esiste all'interno del file, pertanto offset e dimensione nel file sono campi azzerati;
+    * il numero di pagine è pari alla costante _PAGEVM_STACKPAGES_ che, coerentemente con quanto definito nativamente in os161, è pari a 18;
+    * la dimensione occupata in memoria (parole intere) è legata direttamente al numero di pagine, secondo la costante _PAGE_SIZE_;
+    * il puntatore al vnode è _NULL_, in quanto non è necessario mantenere tale informazione: essa è utilizzata, per le altre regioni, per caricare pagine in memoria dall'eseguibile, cosa che non avviene nel caso dello stack.
+Essa effettua anche l'allocazione della page table, per coerenza con il pattern seguito dalla configurazione _DUMBVM_, in cui la funzione di preparazione non viene invocata sul segmento di stack.
+- _seg_prepare_: utilizzata per allocare la page table relativa ai segmenti codice e dati, invocata una volta per ognuno dei segmenti, all'interno di _as_prepare_load_;
+- _seg_copy_: effettua la copia in profondità di un segmento dato in un segmento destinazione, invocata in _as_copy_; si avvale dell'analoga funzione del modulo _pt_ per la copia della page table.
+
+##### Operazioni di traduzione indirizzi
+Si utilizzano le funzioni:
+- _seg_get_paddr_: ottiene l'indirizzo fisico di una pagina di memoria, dato l'indirizzo virtuale che ha causato una TLB miss; è invocata da _vm_fault_, in seguito ad una TLB miss; utilizza direttamente la funzione analoga del modulo _pt_
+- _seg_add_pt_entry_: aggiunge alla page table la coppia (indirizzo virtuale, indirizzo fisico), passati come parametri, utilizzando l'analoga funzione del modulo _pt_; viene invocata in _vm_fault_, in seguito ad una TLB miss.
+
+##### Operazioni di swapping
+Si utilizzano le funzioni:
+- _seg_swap_out_: segna come _swapped out_ la pagina corrispondente all'indirizzo virtuale passato, mediante l'analoga funzione del modulo _pt_; è invocata da _getppage_user_ all'interno del modulo _coremap_, il quale effettua fisicamente lo swap out del frame;
+- _seg_swap_in_: effettua le operazioni di swap in del frame corrispondente all'indirizzo virtuale fornito, supponendo vero che la pagina fosse in stato di _swapped_:
+    * ottiene l'offset nello swapfile, a partire dal contenuto della page table alla entry opportuna;
+    * effettua fisicamente l'operazione di swap in del frame, utilizzando l'indirizzo fisico fornito;
+    * utilizza l'analoga funzione del modulo _pt_ per inserire la corrispondenza (indirizzo virtuale, indirizzo fisico) nella entry opportuna.
+ 
+##### Loading (dinamico) di una pagina dall'eseguibile
+
 
 ### Page table
 Come detto in precedenza, sono presenti tre page table per ogni processo, una per ognuno dei tre segmenti che li costituiscono; per questa ragione, non sono necessarie forme di locking, in quanto la page table
