@@ -327,12 +327,43 @@ int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 #if OPT_PAGING
 ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
 {
+    ps_t *ps;
+    vaddr_t base_code, top_code, base_data, top_data, base_stack, top_stack;
 
-    (void)as;
-    (void)vaddr;
+    // Ensure that the address space and its segments are valid
+    KASSERT(as != NULL);
+    KASSERT(as->seg_code != NULL);
+    KASSERT(as->seg_data != NULL);
+    KASSERT(as->seg_stack != NULL);
+    KASSERT(as->seg_code->page_table != NULL);
+    KASSERT(as->seg_data->page_table != NULL);
+    KASSERT(as->seg_stack->page_table != NULL);
 
-    return NULL;
+    // Calculate the base and top addresses for the code segment
+    base_code = as->seg_code->base_vaddr;
+    top_code = base_code + as->seg_code->seg_size_words;
 
+    // Calculate the base and top addresses for the data segment
+    base_data = as->seg_data->base_vaddr;
+    top_data = base_code + as->seg_data->seg_size_words;
+    
+    // Calculate the base and top addresses for the stack segment
+    base_stack = as->seg_stack->base_vaddr;
+    top_stack = base_stack + as->seg_stack->seg_size_words;
+
+    // Determine which segment the given virtual address (vaddr) belongs to
+    if (vaddr >= base_code && vaddr < top_code) {
+        ps = as->seg_code;  // The address belongs to the code segment
+    }
+    else if (vaddr >= base_data && vaddr < top_data) {
+        ps = as->seg_data;  // The address belongs to the data segment
+    }
+    else if (vaddr >= base_stack && vaddr < top_stack) {
+        ps = as->seg_stack; // The address belongs to the stack segment
+    } else {
+        return NULL;  // The address does not belong to any known segment
+    }
+
+    return ps;  // Return the segment that the address belongs to
 }
-
 #endif
