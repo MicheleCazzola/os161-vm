@@ -6,5 +6,5 @@ sfs_balloc.o: ../../fs/sfs/sfs_balloc.c ../../include/types.h \
  ../../include/hangman.h opt-hangman.h includelinks/machine/spinlock.h \
  ../../include/kern/sfs.h ../../fs/sfs/sfsprivate.h ../../include/uio.h \
  ../../include/addrspace.h ../../include/vm.h includelinks/machine/vm.h \
- ../../include/segment.h ../../include/pt.h opt-dumbvm.h opt-paging.h \
- ../../include/kern/iovec.h
+ ../../include/segment.h ../../include/pt.h ../../include/pagevm.h \
+ opt-paging.h ../../include/kern/iovec.h

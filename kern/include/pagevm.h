@@ -6,6 +6,8 @@
 #ifndef _PAGEVM_H_
 #define _PAGEVM_H_
 
+#define PAGEVM_STACKPAGES 18
+
 /* Function prototypes */
 void vm_bootstrap(void);
 void vm_shutdown(void);

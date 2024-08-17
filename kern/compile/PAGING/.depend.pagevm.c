@@ -3,8 +3,8 @@ pagevm.o: ../../vm/pagevm.c ../../include/types.h \
  includelinks/machine/types.h ../../include/pagevm.h \
  ../../include/vmstats.h ../../include/swapfile.h ../../include/coremap.h \
  ../../include/addrspace.h ../../include/vm.h includelinks/machine/vm.h \
- ../../include/segment.h ../../include/pt.h opt-dumbvm.h opt-paging.h \
- ../../include/vm_tlb.h ../../include/current.h \
+ ../../include/segment.h ../../include/pt.h ../../include/pagevm.h \
+ opt-paging.h ../../include/vm_tlb.h ../../include/current.h \
  includelinks/machine/current.h ../../include/thread.h \
  ../../include/array.h ../../include/cdefs.h ../../include/lib.h \
  opt-noasserts.h ../../include/spinlock.h ../../include/hangman.h \

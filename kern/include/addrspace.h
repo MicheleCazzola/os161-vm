@@ -42,7 +42,7 @@
 
 #include <vm.h>
 #include <segment.h>
-#include "opt-dumbvm.h"
+#include "pagevm.h"
 #include "opt-paging.h"
 
 struct vnode;

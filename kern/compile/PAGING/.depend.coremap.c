@@ -9,5 +9,5 @@ coremap.o: ../../vm/coremap.c ../../include/types.h \
  ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
  ../../include/cpu.h includelinks/machine/vm.h ../../include/proc.h \
  ../../include/addrspace.h ../../include/vm.h ../../include/segment.h \
- ../../include/pt.h opt-dumbvm.h opt-paging.h opt-waitpid.h \
+ ../../include/pt.h ../../include/pagevm.h opt-paging.h opt-waitpid.h \
  ../../include/pagevm.h ../../include/coremap.h ../../include/swapfile.h

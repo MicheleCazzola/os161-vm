@@ -4,4 +4,4 @@ pt.o: ../../vm/pt.c ../../include/types.h ../../include/kern/types.h \
  ../../include/kern/errno.h ../../include/vm.h includelinks/machine/vm.h \
  ../../include/swapfile.h ../../include/coremap.h \
  ../../include/addrspace.h ../../include/segment.h ../../include/pt.h \
- opt-dumbvm.h opt-paging.h
+ ../../include/pagevm.h opt-paging.h

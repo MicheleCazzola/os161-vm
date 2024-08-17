@@ -298,11 +298,24 @@ int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,int readable
 
 int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
 {
-	/*
-	 * Write this.
-	 */
 
-	(void)as;
+    vaddr_t stack_size = PAGEVM_STACKPAGES * PAGE_SIZE;
+
+    //check that the as is not null
+    KASSERT(as!=NULL);
+    //check that the stack is not already been created
+    KASSERT(as->seg_stack==NULL);
+
+    as->seg_stack=seg_create();
+
+    if(as->seg_stack==NULL){
+        return ENOMEM;
+    }
+
+
+    if(seg_define_stack(as->seg_stack, stack_size, PAGEVM_STACKPAGES) != 0){
+        return ENOMEM;
+    }
 
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;

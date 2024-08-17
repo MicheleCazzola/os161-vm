@@ -4,5 +4,5 @@ devnull.o: ../../vfs/devnull.c ../../include/types.h \
  ../../include/lib.h ../../include/cdefs.h opt-noasserts.h \
  ../../include/uio.h ../../include/addrspace.h ../../include/vm.h \
  includelinks/machine/vm.h ../../include/segment.h ../../include/pt.h \
- opt-dumbvm.h opt-paging.h ../../include/kern/iovec.h ../../include/vfs.h \
- ../../include/array.h ../../include/device.h
+ ../../include/pagevm.h opt-paging.h ../../include/kern/iovec.h \
+ ../../include/vfs.h ../../include/array.h ../../include/device.h
