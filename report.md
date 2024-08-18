@@ -105,6 +105,40 @@ Si utilizzano le funzioni:
 - _seg_get_paddr_: ottiene l'indirizzo fisico di una pagina di memoria, dato l'indirizzo virtuale che ha causato una TLB miss; è invocata da _vm_fault_, in seguito ad una TLB miss; utilizza direttamente la funzione analoga del modulo _pt_
 - _seg_add_pt_entry_: aggiunge alla page table la coppia (indirizzo virtuale, indirizzo fisico), passati come parametri, utilizzando l'analoga funzione del modulo _pt_; viene invocata in _vm_fault_, in seguito ad una TLB miss.
 
+##### Loading (dinamico) di una pagina dall'eseguibile
+Si utilizza la funzione _seg_load_page_, che costituisce buona parte della complessità di questo modulo e consente, di fatto, di implementare il loading dinamico delle pagine del programma dall'eseguibile. Dato il segmento associato, l'obiettivo è caricare in memoria la pagina associata ad un indirizzo virtuale (posto che essa non fosse né residente in memoria né _swapped_), ad un indirizzo fisico già opportunamente ricavato.
+
+La pagina richiesta è rappresentata da un indice all'interno dell'eseguibile, calcolato a partire dal campo _base_vaddr_ del segmento; si possono presentare tre casi distinti:
+- **prima pagina**: la pagina richiesta è la prima dell'eseguibile, il cui offset all'interno della pagina stessa potrebbe non essere nullo (ovvero, l'indirizzo virtuale di inizio dell'eseguibile potrebbe non essere _page aligned_) e, per semplicità, si mantiene tale offset anche a livello fisico, effettuando il caricamento della prima pagina anche se parzialmente occupata dall'eseguibile; ci sono due sottocasi possibili:
+  * l'eseguibile termina nella pagina corrente
+  * l'eseguibile occupa anche altre pagine
+    
+  tramite cui si determina quanti byte leggere dall'ELF file.
+- **ultima pagina**: la pagina richiesta è l'ultima dell'eseguibile, di conseguenza il caricamento avviene ad un indirizzo _page aligned_, mentre l'offset all'interno dell'ELF file viene calcolato a partire dal numero di pagine totali e dall'offset all'interno della prima pagina; ci sono due sottocasi possibili:
+  * l'eseguibile termina nella pagina corrente
+  * l'eseguibile termina in una pagina precedente, ma la pagina corrente è ancora occupata: ciò è dovuto al fatto che un file eseguibile ha una _filesize_ e una _memsize_ che potrebbero differire, con la prima minore o uguale alla seconda; in tal caso, l'area di memoria occupata (ma non valorizzata) deve essere azzerata
+  
+  e, in particolare, nel secondo caso non si leggono byte dall'ELF file.
+- **pagina intermedia**: il caricamento è analogo al caso precedente, a livello di offset nell'ELF file e di indirizzo fisico, ma si delineano tre sottocasi possibili, per quanto riguarda il numero di byte da leggere:
+  * l'eseguibile termina in una pagina precedente
+  * l'eseguibile termina nella pagina corrente
+  * l'eseguibile occupa anche pagine successive
+  
+  i quali sono gestiti analogamente ai due casi precedenti.
+
+Dopo aver definito i tre parametri del caricamento, ovvero:
+- _load_paddr_: indirizzo fisico in memoria a cui caricare la pagina;
+- _load_len_bytes_: numero di byte da leggere;
+- _elf_offset_: offset della pagina all'interno del file eseguibile
+
+si azzera la regione di memoria deputata ad ospitare la pagina, per poi effettuare la lettura, seguendo il pattern dato dalle operazioni:
+- _uio_kinit_ per effettuare il setup delle strutture dati _uio_ e _iovec_
+- _VOP_READ_ per effettuare l'operazione di lettura vera e propria
+
+Vengono inoltre effettuati:
+- controlli sul risultato dell'operazione di lettura, per ritornare al chiamante eventuali errori;
+- verifica sul parametro _load_len_bytes_, per fini statistici: se esso è nullo, si registra un page fault relativo ad una pagina azzerata, altrimenti riguarda una pagina da caricare dall'eseguibile (e dal disco).
+
 ##### Operazioni di swapping
 Si utilizzano le funzioni:
 - _seg_swap_out_: segna come _swapped out_ la pagina corrispondente all'indirizzo virtuale passato, mediante l'analoga funzione del modulo _pt_; è invocata da _getppage_user_ all'interno del modulo _coremap_, il quale effettua fisicamente lo swap out del frame;
@@ -113,9 +147,6 @@ Si utilizzano le funzioni:
     * effettua fisicamente l'operazione di swap in del frame, utilizzando l'indirizzo fisico fornito;
     * utilizza l'analoga funzione del modulo _pt_ per inserire la corrispondenza (indirizzo virtuale, indirizzo fisico) nella entry opportuna.
  
-##### Loading (dinamico) di una pagina dall'eseguibile
-
-
 ### Page table
 Come detto in precedenza, sono presenti tre page table per ogni processo, una per ognuno dei tre segmenti che li costituiscono; per questa ragione, non sono necessarie forme di locking, in quanto la page table
 non è una risorsa condivisa tra diversi processi, ma propria di un singolo processo.
