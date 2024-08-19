@@ -243,5 +243,73 @@ Esse non svolgono compiti particolarmente complessi:
 Ogni operazione effettuata all'interno delle funzioni di inizializzazione e incremento è protetta da spinlock, in quanto richiede accesso in mutua esclusione, poiché si realizzano scritture su dati condivisi; la funzione di stampa effettua solo letture, pertanto non richiede l'utilizzo di forme di locking.
 
 ### Coremap
+Il Coremap è una componente fondamentale per la gestione della memoria fisica all'interno del sistema di memoria virtuale (VM). Questa struttura dati tiene traccia dello stato di ogni pagina di memoria fisica, consentendo al sistema di sapere quali pagine sono attualmente in uso, quali sono libere e quali devono essere sostituite o recuperate dal disco. Il Coremap gestisce sia le pagine utilizzate dal kernel che quelle utilizzate dai processi utente, facilitando la gestione dinamica della memoria in base alle esigenze del sistema.
+#### Strutture dati
+La struttura dati utilizzata per la gestione del Coremap è definita in coremap.h ed è la seguente:
+```C
+struct coremap_entry {
+    coremap_entry_state entry_type; 
+    unsigned long allocation_size;        
+    
+    unsigned long previous_allocated;   
+    unsigned long next_allocated;   
+    
+    vaddr_t virtual_address;                  
+    addrspace_t *address_space;                
+};
+```
+Questa struttura serve a rappresentare lo stato e le proprietà di una singola pagina di memoria fisica. Ogni campo ha un ruolo specifico:
+- _entry_type_: indica lo stato attuale della pagina, usando la enum coremap_entry_state. Può assumere lo stato:
+  * COREMAP_BUSY_KERNEL: la pagina è allocata per l'uso del kernel.
+  * COREMAP_BUSY_USER: la pagina è allocata per l'uso utente.
+  * COREMAP_UNTRACKED: la pagina non è ancora gestita dal Coremap.
+  * COREMAP_FREED: la pagina è stata liberata e può essere riutilizzata.
 
+- _allocation_size_: specifica la dimensione dell'allocazione, ovvero il numero di pagine contigue allocate. Questo è particolarmente rilevante per le allocazioni del kernel, che possono richiedere blocchi di pagine contigue.
+
+- _previous_allocated_ e _next_allocated_:  fungono da puntatori per una lista collegata delle pagine allocate. Vengono utilizzati per implementare una strategia FIFO (First-In-First-Out) per la sostituzione delle pagine, facilitando il tracking delle pagine in ordine di allocazione.
+
+- _virtual_address_:  memorizza l'indirizzo virtuale associato alla pagina. È particolarmente importante per le pagine utente, dove il sistema deve mappare l'indirizzo virtuale dell'utente alla pagina fisica corrispondente.
+
+- _address_space_:  punta allo spazio di indirizzamento (address space) a cui è allocata la pagina. È usato per identificare quale processo utente sta utilizzando la pagina.
+#### Implementazione
+L'implementazione del Coremap è fondamentale per la gestione della memoria all'interno del sistema operativo. I seguenti prototipi sono definiti per gestire l'inizializzazione, l'allocazione, la deallocazione e lo shutdown del Coremap:
+```C
+void coremap_init(void);            
+void coremap_shutdown(void);        
+vaddr_t alloc_kpages(unsigned npages); 
+void free_kpages(vaddr_t addr);     
+paddr_t alloc_user_page(vaddr_t vaddr); 
+void free_user_page(paddr_t paddr); 
+```
+- _coremap_init()_: funzione che inizializza il Coremap, allocando la memoria necessaria per gestire tutte le pagine di memoria fisica disponibili. Imposta ogni entry inizialmente come COREMAP_UNTRACKED, indicando che le pagine non sono ancora gestite.
+
+- _coremap_shutdown()_: funzione responsabile dell'arresto e della pulizia del Coremap, liberando la memoria allocata e disattivando il Coremap quando il sistema non ne ha più bisogno.
+
+- _alloc_kpages(unsigned npages)_: funzione che gestisce l'allocazione delle pagine per il kernel. Tenta di allocare npages contigue, restituendo l'indirizzo virtuale del primo blocco. Se non ci sono pagine libere sufficienti, il sistema potrebbe tentare di "rubare" memoria (ram_stealmem).
+
+- _free_kpages(vaddr_t addr)_: funzione che libera le pagine allocate al kernel, segnandole come COREMAP_FREED nel Coremap, rendendole disponibili per future allocazioni.
+
+- _alloc_user_page(vaddr_t vaddr)_: funzione che gestisce l'allocazione delle pagine per i processi utente. Cerca prima di utilizzare pagine libere e, se necessario, sostituisce una pagina esistente usando una strategia di sostituzione FIFO. Se una pagina viene sostituita, la funzione interagisce con lo Swapfile per gestire il trasferimento della pagina al disco.
+
+- _free_user_page(paddr_t paddr)_: funzione che libera le pagine allocate ai processi utente, rimuovendo la pagina dalla coda di allocazione e segnandola come COREMAP_FREED nel Coremap.
 ### Swapfile
+Lo Swapfile è un componente essenziale per estendere la capacità di memoria fisica del sistema, permettendo al sistema operativo di gestire più processi di quanti possano essere contenuti nella memoria fisica disponibile. Quando la memoria RAM è piena, lo Swapfile permette di spostare temporaneamente le pagine su disco, liberando memoria per altri processi.
+#### Implementazione
+L'implementazione dello Swapfile prevede diverse funzioni per la gestione dello spazio di swap e il trasferimento delle pagine tra memoria fisica e disco. I prototipi delle funzioni principali sono:
+```C
+int swap_init(void);
+int swap_out(paddr_t page_paddr, off_t *ret_offset);
+int swap_in(paddr_t page_paddr, off_t swap_offset);
+void swap_free(off_t swap_offset);
+void swap_shutdown(void);
+```
+- _swap_init()_: funzione che inizializza lo Swapfile, creando il file di swap e la bitmap utile a  tracciare lo stato di utilizzo delle pagine nel file di swap.
+
+- _swap_out(paddr_t page_paddr, off_t *ret_offset)_: funzione che scrive una pagina dalla memoria fisica al file di swap. Il parametro page_paddr indica l'indirizzo fisico della pagina da spostare su disco. La funzione restituisce l'offset nel file di swap dove la pagina è stata memorizzata, permettendo di recuperarla in seguito.
+
+- _swap_in(paddr_t page_paddr, off_t swap_offset)_: funzione che legge una pagina dal file di swap e la ripristina nella memoria fisica. Il parametro swap_offset indica l'offset nel file di swap da cui recuperare la pagina.
+
+- _swap_free(off_t swap_offset)_: funzione che libera lo spazio nel file di swap associato a una pagina che non è più necessaria. Il parametro swap_offset specifica l'offset della pagina nel file di swap da liberare.
+
+- _swap_shutdown()_: funzione che chiude e libera le risorse associate allo Swapfile quando il sistema non ne ha più bisogno. Chiude il file di swap e rilascia la memoria utilizzata dalla bitmap.

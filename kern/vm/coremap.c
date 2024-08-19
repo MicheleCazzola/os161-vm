@@ -229,7 +229,7 @@ vaddr_t alloc_kpages(unsigned npages) {
  */
 void free_kpages(vaddr_t addr) {
     if (is_coremap_active()) {
-        paddr_t physical_address = addr - MIPS_KSEG0; // MIPS_KSEG0 is the base address of the direct-mapped segment in the architecture (that is MIPS).
+        paddr_t physical_address = addr - MIPS_KSEG0; // MIPS_KSEG0 is the base address of the direct-mapped segment in the architecture.
         long first_page = physical_address / PAGE_SIZE;
         KASSERT(total_ram_frames > first_page);
         free_pages(physical_address, coremap[first_page].allocation_size);
@@ -242,6 +242,7 @@ void free_kpages(vaddr_t addr) {
  */
 static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
     addrspace_t *current_as;  // Pointer to the current address space of the process
+    ps_t *victim_ps;
     paddr_t address;  // Physical address of the page to be allocated
     unsigned long last_allocated_temp, current_victim_temp, new_victim;
     off_t swapfile_offset;  // Offset in the swap file where the page will be swapped out
@@ -304,6 +305,7 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
                 last_allocated_page = page_index;  // Update the index of the last allocated page
                 spinlock_release(&page_replacement_lock);  
             } else {
+                // SWAP OUT
                 // The page was not free, so we need to swap out a page
                 address = (paddr_t)current_victim_temp * PAGE_SIZE;  // Convert victim page index to physical address
                 result = swap_out(address, &swapfile_offset);  // Swap out the victim page to the swap file
@@ -312,7 +314,27 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
                 }
 
                 // Update coremap to reflect the swapped-out page
-                spinlock_acquire(&coremap_lock);  
+                spinlock_acquire(&coremap_lock);
+
+                // Find the segment in the address space that corresponds to the page being considered for swapping out.
+                // `coremap[current_victim_temp].address_space` provides the address space of the page being considered.
+                // `coremap[current_victim_temp].virtual_address` gives the virtual address of that page.
+                // The `as_find_segment` function  searches through the address space to find the corresponding segment
+                // that contains this virtual address.
+                victim_ps = as_find_segment(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
+
+                // Ensure that the segment pointer `victim_ps` is not NULL, i.e., that the segment containing the virtual address
+                // was successfully found in the address space. If `victim_ps` is NULL, it indicates an error, possibly
+                // because the virtual address does not belong to any segment in the given address space.
+                KASSERT(victim_ps != NULL);
+
+                // Perform the swap out operation for the identified segment. 
+                // The `seg_swap_out` function writes the page to the swapfile, using the provided offset (`swapfile_offset`)
+                // in the swapfile and the virtual address (`coremap[current_victim_temp].virtual_address`) of the page being swapped out.
+                // This step is where the actual data of the page is moved from RAM to the swapfile.
+                seg_swap_out(victim_ps, swapfile_offset, coremap[current_victim_temp].virtual_address);
+
+
                 KASSERT(coremap[current_victim_temp].entry_type == COREMAP_BUSY_USER);  // Ensure the victim page was in use
                 KASSERT(coremap[current_victim_temp].allocation_size == 1);  // Ensure the victim page size is correct
 

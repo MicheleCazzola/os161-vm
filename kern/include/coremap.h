@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte
+ * Authors: Leone Fabio - 2024
  * Coremap handling, used to track freed frames
  */
 

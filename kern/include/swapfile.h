@@ -1,5 +1,5 @@
 /* 
- * Authors: Michele Cazzola, Leone Fabio, Filippo Forte - 2024
+ * Authors: Leone Fabio - 2024
  * Swap in/out handling
 */
 
