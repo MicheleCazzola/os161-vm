@@ -11,4 +11,5 @@ pagevm.o: ../../vm/pagevm.c ../../include/types.h \
  opt-hangman.h includelinks/machine/spinlock.h ../../include/threadlist.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/cpu.h \
- ../../include/proc.h opt-waitpid.h
+ ../../include/proc.h opt-waitpid.h ../../include/spl.h \
+ includelinks/mips/tlb.h ../../include/kern/errno.h
