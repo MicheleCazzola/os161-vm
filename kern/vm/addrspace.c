@@ -313,7 +313,7 @@ int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
     }
 
 
-    if(seg_define_stack(as->seg_stack, stack_size, PAGEVM_STACKPAGES) != 0){
+    if(seg_define_stack(as->seg_stack, USERSTACK - stack_size, PAGEVM_STACKPAGES) != 0){
         return ENOMEM;
     }
 
@@ -345,7 +345,7 @@ ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
 
     // Calculate the base and top addresses for the data segment
     base_data = as->seg_data->base_vaddr;
-    top_data = base_code + as->seg_data->seg_size_words;
+    top_data = base_data + as->seg_data->seg_size_words;
     
     // Calculate the base and top addresses for the stack segment
     base_stack = as->seg_stack->base_vaddr;

@@ -83,12 +83,14 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
     unsigned int tlb_index;
     uint64_t peek;
 
+/*
     //check that the fault type is correct
-    if(faulttype != VM_FAULT_READONLY && faulttype != VM_FAULT_READ && faulttype != VM_FAULT_WRITE){
+    if((faulttype != VM_FAULT_READONLY) && (faulttype != VM_FAULT_READ) && (faulttype != VM_FAULT_WRITE)){
         return EINVAL;
     }
+*/
 
-    if(faulttype != VM_FAULT_READONLY){
+    if(faulttype == VM_FAULT_READONLY){
         return EACCES;
     }
 

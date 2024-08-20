@@ -53,8 +53,8 @@ int seg_define(ps_t *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t
     
     KASSERT(read);  /* Read operation should be always allowed */
     KASSERT(proc_seg != NULL);
-    KASSERT(proc_seg->elf_vnode != NULL);
-    KASSERT(proc_seg->page_table != NULL);
+    KASSERT(elf_vnode != NULL);
+    KASSERT(proc_seg->page_table == NULL);
     
     if (write) {
         proc_seg->permissions = PAGE_RW;
@@ -84,8 +84,7 @@ int seg_define_stack(ps_t *proc_seg, vaddr_t base_vaddr, size_t num_pages) {
     pt_t *page_table;
 
     KASSERT(proc_seg != NULL);
-    KASSERT(proc_seg->elf_vnode != NULL);
-    KASSERT(proc_seg->page_table != NULL);
+    KASSERT(proc_seg->page_table == NULL);
     KASSERT(num_pages > 0);     /* Stack cannot have 0 pages */
 
     proc_seg->permissions = PAGE_STACK;
@@ -352,6 +351,8 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
         vmstats_increment(VMSTAT_PAGE_FAULT_DISK);
         vmstats_increment(VMSTAT_PAGE_FAULT_ELF);
     }
+
+    kprintf("Loading Page at %d, size: %d, offset: %d", load_paddr, load_len_bytes, (int)elf_offset);
 
     /**
      * Read from ELF file, given physical start addres in memory, start offset in ELF file
