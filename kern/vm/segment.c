@@ -139,6 +139,7 @@ int seg_copy(ps_t *src, ps_t **dest) {
 
     ps_t *new_seg;
     int seg_define_result;
+    char writable, executable;
 
     KASSERT(dest != NULL);
     KASSERT(src != NULL);
@@ -158,10 +159,9 @@ int seg_copy(ps_t *src, ps_t **dest) {
      * Segment definition: discrimination between stack and other segments
      */
     if (src->permissions != PAGE_STACK) {
-        seg_define_result = seg_define(
-            new_seg, src->seg_size_bytes, src->file_offset, src->base_vaddr, src->num_pages, src->seg_size_words, 
-            src->elf_vnode, 1, src->permissions == PAGE_RW ? 1 : 0, src->permissions == PAGE_EXE ? 1 : 0
-        );
+        writable = (src->permissions == PAGE_RW) ? 1 : 0;
+        executable = (src->permissions == PAGE_EXE) ? 1 : 0;
+        seg_define_result = seg_define(new_seg, src->seg_size_bytes, src->file_offset, src->base_vaddr, src->num_pages, src->seg_size_words, src->elf_vnode, 1, writable, executable);
     }
     else {
         seg_define_result = seg_define_stack(new_seg, src->base_vaddr, src->num_pages);
@@ -352,7 +352,7 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
         vmstats_increment(VMSTAT_PAGE_FAULT_ELF);
     }
 
-    kprintf("Loading Page at %d, size: %d, offset: %d", load_paddr, load_len_bytes, (int)elf_offset);
+    kprintf("Loading Page at %d, size: %d, offset: %d\n", load_paddr, load_len_bytes, (int)elf_offset);
 
     /**
      * Read from ELF file, given physical start addres in memory, start offset in ELF file

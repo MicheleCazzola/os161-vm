@@ -83,13 +83,17 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
     unsigned int tlb_index;
     uint64_t peek;
 
-/*
     //check that the fault type is correct
     if((faulttype != VM_FAULT_READONLY) && (faulttype != VM_FAULT_READ) && (faulttype != VM_FAULT_WRITE)){
         return EINVAL;
     }
-*/
 
+    /* Non richiesto (forse) perché non gestiamo dirty bit
+    Il faulttype è VM_FAULT READONLY quando avviene TLB hit su richiesta di write, ma il dirty bit è 0
+    Se il dirty è 0, in os161 vuol dire che la pagina è writable -> Se richiedo una write ma dirty è 0, 
+    in caso di hit è un problema, perché quella pagina non è read-write
+    Non so perché loro lo gestiscano così*/
+    
     if(faulttype == VM_FAULT_READONLY){
         return EACCES;
     }
@@ -160,8 +164,9 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
         vmstats_increment(VMSTAT_TLB_MISS_FREE);
     }
 
+    vmstats_increment(VMSTAT_TLB_MISS);
 
-    vm_tlb_write(faultaddress, physical_address, tlb_index);
+    vm_tlb_write(faultaddress, physical_address, process_segment->permissions == PAGE_RW || process_segment->permissions == PAGE_STACK, tlb_index);
 
     splx(spl);
     

@@ -42,6 +42,7 @@
 #include <proc.h>
 #include <spl.h>
 #include <vm_tlb.h>
+#include <segment.h>
 #include "opt-paging.h"
 
 /*
@@ -251,7 +252,7 @@ int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize, size_t file
         {
             return ENOMEM;  // Return if memory allocation fails
         }
-        seg_define(as->seg_code, vaddr, file_size, offset, memsize, npages, v, readable, writeable, executable);
+        seg_define(as->seg_code, file_size, offset, vaddr, npages, memsize, v, readable, writeable, executable);
         return 0;
     }
 
@@ -263,7 +264,7 @@ int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize, size_t file
         {
             return ENOMEM;  // Return if memory allocation fails
         }
-        seg_define(as->seg_data, vaddr, file_size, offset, memsize, npages, v, readable, writeable, executable);
+        seg_define(as->seg_data, file_size, offset, vaddr, npages, memsize, v, readable, writeable, executable);
         return 0;
     }
 
@@ -312,7 +313,6 @@ int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
         return ENOMEM;
     }
 
-
     if(seg_define_stack(as->seg_stack, USERSTACK - stack_size, PAGEVM_STACKPAGES) != 0){
         return ENOMEM;
     }
@@ -346,10 +346,14 @@ ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
     // Calculate the base and top addresses for the data segment
     base_data = as->seg_data->base_vaddr;
     top_data = base_data + as->seg_data->seg_size_words;
-    
+
+    /*
+    kprintf("base_vaddr: %d, base_data: %d, memsize: %d, top_data: %d, raw_add: %d\n",
+            as->seg_data->base_vaddr, base_data, as->seg_data->seg_size_words, top_data, base_data + as->seg_data->seg_size_words);
+    */
     // Calculate the base and top addresses for the stack segment
     base_stack = as->seg_stack->base_vaddr;
-    top_stack = base_stack + as->seg_stack->seg_size_words;
+    top_stack = USERSTACK;
 
     // Determine which segment the given virtual address (vaddr) belongs to
     if (vaddr >= base_code && vaddr < top_code) {
@@ -358,7 +362,7 @@ ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
     else if (vaddr >= base_data && vaddr < top_data) {
         ps = as->seg_data;  // The address belongs to the data segment
     }
-    else if (vaddr >= base_stack && vaddr < top_stack) {
+    else if (vaddr >= base_stack && vaddr < top_stack) {    // Maybe second comparison is wrong
         ps = as->seg_stack; // The address belongs to the stack segment
     } else {
         return NULL;  // The address does not belong to any known segment

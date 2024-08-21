@@ -75,18 +75,21 @@ void vmstats_show() {
 
     kprintf("--Virtual memory statistics--");
     for(i = 0; i < VMSTATS_NUM; i++) {
-        kprintf("%s: %d", vmstats_names[i], vmstats_counts[i]);
+        kprintf("%s: %d\n", vmstats_names[i], vmstats_counts[i]);
     }
 
-    if(vmstats_counts[0] != (vmstats_counts[1] + vmstats_counts[2])) {
-        kprintf("Warning: sum of TLB faults with free and with replace not equal to number of TLB faults");
+    if(vmstats_counts[VMSTAT_TLB_MISS] != (vmstats_counts[VMSTAT_TLB_MISS_FREE] + vmstats_counts[VMSTAT_TLB_MISS_REPLACE])) {
+        kprintf("Warning: sum of TLB faults with free (%d) and with replace (%d) not equal to number of TLB faults (%d)\n",
+                    vmstats_counts[VMSTAT_TLB_MISS_FREE], vmstats_counts[VMSTAT_TLB_MISS_REPLACE], vmstats_counts[VMSTAT_TLB_MISS]);
     }
 
-    if(vmstats_counts[0] != (vmstats_counts[3] + vmstats_counts[5] + vmstats_counts[6])) {
-        kprintf("Warning: sum of TLB reloads, zeroed-page faults and page faults from disk not equal to number of TLB faults");
+    if(vmstats_counts[VMSTAT_TLB_MISS] != (vmstats_counts[VMSTAT_TLB_RELOAD] + vmstats_counts[VMSTAT_PAGE_FAULT_ZERO] + vmstats_counts[VMSTAT_PAGE_FAULT_DISK])) {
+        kprintf("Warning: sum of TLB reloads (%d), zeroed-page faults (%d) and page faults from disk (%d) not equal to number of TLB faults (%d)\n",
+                    vmstats_counts[VMSTAT_TLB_RELOAD], vmstats_counts[VMSTAT_PAGE_FAULT_ZERO], vmstats_counts[VMSTAT_PAGE_FAULT_DISK], vmstats_counts[VMSTAT_TLB_MISS]);
     }
 
-    if(vmstats_counts[6] != (vmstats_counts[7] + vmstats_counts[8])) {
-        kprintf("Warning: sum of page faults from ELF and from swapfile not equal to number of page faults from disk");
+    if(vmstats_counts[VMSTAT_PAGE_FAULT_DISK] != (vmstats_counts[VMSTAT_PAGE_FAULT_ELF] + vmstats_counts[VMSTAT_PAGE_FAULT_SWAPFILE])) {
+        kprintf("Warning: sum of page faults from ELF (%d) and from swapfile (%d) not equal to number of page faults from disk (%d)\n",
+                    vmstats_counts[VMSTAT_PAGE_FAULT_ELF], vmstats_counts[VMSTAT_PAGE_FAULT_SWAPFILE], vmstats_counts[VMSTAT_PAGE_FAULT_DISK]);
     }
 }

@@ -275,8 +275,8 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
 
             // Update coremap to reflect the newly allocated page
             spinlock_acquire(&coremap_lock);  // Acquire lock to ensure exclusive access to coremap
-            if (coremap[page_index].entry_type == COREMAP_FREED) {
-                // The page was previously freed; we can now allocate it
+            //if (coremap[page_index].entry_type == COREMAP_FREED) {
+                // The page was previously freed; we can now allocate it ???
                 coremap[page_index].entry_type = COREMAP_BUSY_USER;  
                 coremap[page_index].allocation_size = 1;  
                 coremap[page_index].address_space = current_as;  
@@ -304,59 +304,60 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
                 }
                 last_allocated_page = page_index;  // Update the index of the last allocated page
                 spinlock_release(&page_replacement_lock);  
-            } else {
-                // SWAP OUT
-                // The page was not free, so we need to swap out a page
-                address = (paddr_t)current_victim_temp * PAGE_SIZE;  // Convert victim page index to physical address
-                result = swap_out(address, &swapfile_offset);  // Swap out the victim page to the swap file
-                if (result) {
-                    panic("Failed to swap out a page to file");  
-                }
-
-                // Update coremap to reflect the swapped-out page
-                spinlock_acquire(&coremap_lock);
-
-                // Find the segment in the address space that corresponds to the page being considered for swapping out.
-                // `coremap[current_victim_temp].address_space` provides the address space of the page being considered.
-                // `coremap[current_victim_temp].virtual_address` gives the virtual address of that page.
-                // The `as_find_segment` function  searches through the address space to find the corresponding segment
-                // that contains this virtual address.
-                victim_ps = as_find_segment(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
-
-                // Ensure that the segment pointer `victim_ps` is not NULL, i.e., that the segment containing the virtual address
-                // was successfully found in the address space. If `victim_ps` is NULL, it indicates an error, possibly
-                // because the virtual address does not belong to any segment in the given address space.
-                KASSERT(victim_ps != NULL);
-
-                // Perform the swap out operation for the identified segment. 
-                // The `seg_swap_out` function writes the page to the swapfile, using the provided offset (`swapfile_offset`)
-                // in the swapfile and the virtual address (`coremap[current_victim_temp].virtual_address`) of the page being swapped out.
-                // This step is where the actual data of the page is moved from RAM to the swapfile.
-                seg_swap_out(victim_ps, swapfile_offset, coremap[current_victim_temp].virtual_address);
-
-
-                KASSERT(coremap[current_victim_temp].entry_type == COREMAP_BUSY_USER);  // Ensure the victim page was in use
-                KASSERT(coremap[current_victim_temp].allocation_size == 1);  // Ensure the victim page size is correct
-
-                // Update the coremap entry for the swapped-out page
-                coremap[current_victim_temp].virtual_address = associated_vaddr;  
-                coremap[current_victim_temp].address_space = current_as;  
-                new_victim = coremap[current_victim_temp].next_allocated;  // Save the index of the next victim
-
-                // Update the linked list of allocated pages
-                coremap[last_allocated_temp].next_allocated = current_victim_temp;  // Link the last allocated page to the victim page
-                coremap[current_victim_temp].next_allocated = invalid_reference;  // The victim page has no further links
-                coremap[current_victim_temp].previous_allocated = last_allocated_temp;  // Set the victim page's previous link
-
-                spinlock_release(&coremap_lock);  
-
-                // Update page replacement tracking after swapping
-                spinlock_acquire(&page_replacement_lock);  
-                KASSERT(new_victim != invalid_reference);  // Ensure there is a valid next victim
-                last_allocated_page = current_victim_temp;  // Update the last allocated page to be the victim page
-                current_victim_page = new_victim;  // Update the current victim page index
-                spinlock_release(&page_replacement_lock);  
+            //}
+        } 
+        else {
+            // SWAP OUT
+            // The page was not free, so we need to swap out a page
+            address = (paddr_t)current_victim_temp * PAGE_SIZE;  // Convert victim page index to physical address
+            result = swap_out(address, &swapfile_offset);  // Swap out the victim page to the swap file
+            if (result) {
+                panic("Failed to swap out a page to file");  
             }
+
+            // Update coremap to reflect the swapped-out page
+            spinlock_acquire(&coremap_lock);
+
+            // Find the segment in the address space that corresponds to the page being considered for swapping out.
+            // `coremap[current_victim_temp].address_space` provides the address space of the page being considered.
+            // `coremap[current_victim_temp].virtual_address` gives the virtual address of that page.
+            // The `as_find_segment` function  searches through the address space to find the corresponding segment
+            // that contains this virtual address.
+            victim_ps = as_find_segment(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
+
+            // Ensure that the segment pointer `victim_ps` is not NULL, i.e., that the segment containing the virtual address
+            // was successfully found in the address space. If `victim_ps` is NULL, it indicates an error, possibly
+            // because the virtual address does not belong to any segment in the given address space.
+            KASSERT(victim_ps != NULL);
+
+            // Perform the swap out operation for the identified segment. 
+            // The `seg_swap_out` function writes the page to the swapfile, using the provided offset (`swapfile_offset`)
+            // in the swapfile and the virtual address (`coremap[current_victim_temp].virtual_address`) of the page being swapped out.
+            // This step is where the actual data of the page is moved from RAM to the swapfile.
+            seg_swap_out(victim_ps, swapfile_offset, coremap[current_victim_temp].virtual_address);
+
+
+            KASSERT(coremap[current_victim_temp].entry_type == COREMAP_BUSY_USER);  // Ensure the victim page was in use
+            KASSERT(coremap[current_victim_temp].allocation_size == 1);  // Ensure the victim page size is correct
+
+            // Update the coremap entry for the swapped-out page
+            coremap[current_victim_temp].virtual_address = associated_vaddr;  
+            coremap[current_victim_temp].address_space = current_as;  
+            new_victim = coremap[current_victim_temp].next_allocated;  // Save the index of the next victim
+
+            // Update the linked list of allocated pages
+            coremap[last_allocated_temp].next_allocated = current_victim_temp;  // Link the last allocated page to the victim page
+            coremap[current_victim_temp].next_allocated = invalid_reference;  // The victim page has no further links
+            coremap[current_victim_temp].previous_allocated = last_allocated_temp;  // Set the victim page's previous link
+
+            spinlock_release(&coremap_lock);  
+
+            // Update page replacement tracking after swapping
+            spinlock_acquire(&page_replacement_lock);  
+            KASSERT(new_victim != invalid_reference);  // Ensure there is a valid next victim
+            last_allocated_page = current_victim_temp;  // Update the last allocated page to be the victim page
+            current_victim_page = new_victim;  // Update the current victim page index
+            spinlock_release(&page_replacement_lock);  
         }
     }
     return address;  // Return the physical address of the allocated page

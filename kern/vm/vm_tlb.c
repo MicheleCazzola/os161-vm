@@ -73,18 +73,17 @@ uint64_t vm_tlb_peek_victim() {
  * Writes a TLB entry into a specified position
  * NOTE: to decide whether consider dirty bit handling or not
  */
-void vm_tlb_write(vaddr_t vaddr, paddr_t paddr,/* unsigned char dirty,*/ unsigned int index) {
+void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty, unsigned int index) {
 
     uint32_t entry_hi, entry_lo;
 
     entry_hi = vaddr & PAGE_FRAME;
     entry_lo = paddr | TLBLO_VALID;
 
-    /*
+    /* Marks entry as writable: in os161, dirty bit set means that the page is writable */
     if (dirty) {
         entry_lo |= TLBLO_DIRTY;
     }
-    */
 
     tlb_write(entry_hi, entry_lo, index);
 }
