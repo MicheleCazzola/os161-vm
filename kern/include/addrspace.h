@@ -124,7 +124,6 @@ void as_destroy(addrspace_t *);
 int as_prepare_load(addrspace_t *as);
 int as_complete_load(addrspace_t *as);
 int as_define_stack(addrspace_t *as, vaddr_t *initstackptr);
-ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr);
 #if OPT_PAGING
 int as_define_region(addrspace_t *as,
                                    vaddr_t vaddr, size_t memsize,
@@ -134,6 +133,8 @@ int as_define_region(addrspace_t *as,
                                    int readable,
                                    int writeable,
                                    int executable);
+ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr);
+ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr);
 #else
 int as_define_region(addrspace_t *as,
                                    vaddr_t vaddr, size_t sz,

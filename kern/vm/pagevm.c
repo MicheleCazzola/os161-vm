@@ -88,11 +88,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
         return EINVAL;
     }
 
-    /* Non richiesto (forse) perché non gestiamo dirty bit
+    /* Riscrivere questo commento
     Il faulttype è VM_FAULT READONLY quando avviene TLB hit su richiesta di write, ma il dirty bit è 0
     Se il dirty è 0, in os161 vuol dire che la pagina è writable -> Se richiedo una write ma dirty è 0, 
     in caso di hit è un problema, perché quella pagina non è read-write
-    Non so perché loro lo gestiscano così*/
+    */
     
     if(faulttype == VM_FAULT_READONLY){
         return EACCES;

@@ -323,7 +323,16 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
             // `coremap[current_victim_temp].virtual_address` gives the virtual address of that page.
             // The `as_find_segment` function  searches through the address space to find the corresponding segment
             // that contains this virtual address.
-            victim_ps = as_find_segment(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
+            //victim_ps = as_find_segment(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
+
+            /**
+             * Using coarse version because base virtual address of a segment could be page-unaligned
+             * Thus, since virtual address field is page-aligned, it could contain a virtual address lower the base one, leading to errors
+             * This version casts all virtual addresses to page-aligned ones, then it works than fine grained version
+             * It is less safe, since page-alignment operation could need to consider some virtual addresses (not belonging to a 
+             * specific segment) as belonging to it, so it is needed to trust on the caller to perform the correct operations.
+             */
+            victim_ps = as_find_segment_coarse(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
 
             // Ensure that the segment pointer `victim_ps` is not NULL, i.e., that the segment containing the virtual address
             // was successfully found in the address space. If `victim_ps` is NULL, it indicates an error, possibly

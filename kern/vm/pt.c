@@ -36,7 +36,7 @@ static unsigned long pt_get_entry_index(pt_t *pt, vaddr_t vaddr) {
      * and conversion from page virtual address to page table index is easy
      */
     page_vaddr = vaddr & PAGE_FRAME;
-    index = (page_vaddr - pt->base_vaddr) / PAGE_SIZE;
+    index = (page_vaddr - (pt->base_vaddr & PAGE_FRAME)) / PAGE_SIZE;
 
     /* Boundary check for computed index */
     KASSERT(index < pt->num_pages);

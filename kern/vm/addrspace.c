@@ -370,4 +370,54 @@ ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
 
     return ps;  // Return the segment that the address belongs to
 }
+
+/**
+ * Same as above, but it uses page granularity: useful when base virtual address of a segment is not page-aligned
+ * Less safe than as_find_segment, it needs to trust on caller to not access virtual space out of current process
+ */
+ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)
+{
+    ps_t *ps;
+    vaddr_t base_code, top_code, base_data, top_data, base_stack, top_stack;
+
+    // Ensure that the address space and its segments are valid
+    KASSERT(as != NULL);
+    KASSERT(as->seg_code != NULL);
+    KASSERT(as->seg_data != NULL);
+    KASSERT(as->seg_stack != NULL);
+    KASSERT(as->seg_code->page_table != NULL);
+    KASSERT(as->seg_data->page_table != NULL);
+    KASSERT(as->seg_stack->page_table != NULL);
+
+    // Calculate the base and top addresses for the code segment
+    base_code = as->seg_code->base_vaddr & PAGE_FRAME;
+    top_code = base_code + as->seg_code->num_pages * PAGE_SIZE;
+
+    // Calculate the base and top addresses for the data segment
+    base_data = as->seg_data->base_vaddr & PAGE_FRAME;
+    top_data = base_data + as->seg_data->num_pages * PAGE_SIZE;
+
+    /*
+    kprintf("base_vaddr: %d, base_data: %d, memsize: %d, top_data: %d, raw_add: %d\n",
+            as->seg_data->base_vaddr, base_data, as->seg_data->seg_size_words, top_data, base_data + as->seg_data->seg_size_words);
+    */
+    // Calculate the base and top addresses for the stack segment
+    base_stack = USERSTACK - PAGEVM_STACKPAGES * PAGE_SIZE;
+    top_stack = USERSTACK;
+
+    // Determine which segment the given virtual address (vaddr) belongs to
+    if (vaddr >= base_code && vaddr < top_code) {
+        ps = as->seg_code;  // The address belongs to the code segment
+    }
+    else if (vaddr >= base_data && vaddr < top_data) {
+        ps = as->seg_data;  // The address belongs to the data segment
+    }
+    else if (vaddr >= base_stack && vaddr < top_stack) {    // Maybe second comparison is wrong
+        ps = as->seg_stack; // The address belongs to the stack segment
+    } else {
+        return NULL;  // The address does not belong to any known segment
+    }
+
+    return ps;  // Return the segment that the address belongs to
+}
 #endif
