@@ -6,6 +6,8 @@
 #ifndef _VM_TLB_H
 #define _VM_TLB_H
 
+#include <types.h>
+
 /**
  * Functions description
  * 
@@ -23,7 +25,7 @@
  * 
  */
 
-void vm_tlb_init(void);
+void vm_tlb_init(bool init_victim);
 unsigned int vm_tlb_get_victim_round_robin(void);
 uint64_t vm_tlb_peek_victim(void);
 void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty, unsigned int index);

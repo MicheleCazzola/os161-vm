@@ -46,7 +46,7 @@ void pagevm_can_sleep(void)
  */
 void vm_bootstrap(void)
 {
-    vm_tlb_init();
+    vm_tlb_init(true);
     coremap_init();
     swap_init();
     vmstats_init();
@@ -154,9 +154,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 
     spl = splhigh();
 
-    tlb_index = vm_tlb_get_victim_round_robin();
+    //tlb_index = vm_tlb_get_victim_round_robin();
 
     peek = vm_tlb_peek_victim();
+
+    //kprintf("Peek value: %llx\n", peek);
 
     if(peek & (TLBLO_VALID*1ULL)){
         vmstats_increment(VMSTAT_TLB_MISS_REPLACE);
@@ -165,6 +167,8 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
     }
 
     vmstats_increment(VMSTAT_TLB_MISS);
+
+    tlb_index = vm_tlb_get_victim_round_robin();
 
     vm_tlb_write(faultaddress, physical_address, process_segment->permissions == PAGE_RW || process_segment->permissions == PAGE_STACK, tlb_index);
 

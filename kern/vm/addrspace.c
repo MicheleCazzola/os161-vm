@@ -42,6 +42,7 @@
 #include <proc.h>
 #include <spl.h>
 #include <vm_tlb.h>
+#include <vmstats.h>
 #include <segment.h>
 #include "opt-paging.h"
 
@@ -115,18 +116,21 @@ void as_activate(void)
         return;
     }
 
-    #if OPT_PAGING
+#if OPT_PAGING
     int spl;
 
     // Disable interrupts
     spl = splhigh();
 
-    // Initialize the TLB (Translation Lookaside Buffer)
-    vm_tlb_init();
+    // Initialize the TLB (Translation Lookaside Buffer), only for entries invalidation
+    vm_tlb_init(false);
+
+    // Register TLB invalidation
+    vmstats_increment(VMSTAT_TLB_INVALIDATION);
 
     // Restore interrupt state
     splx(spl);
-    #endif
+#endif
 }
 
 
