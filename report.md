@@ -313,3 +313,11 @@ void swap_shutdown(void);
 - _swap_free(off_t swap_offset)_: funzione che libera lo spazio nel file di swap associato a una pagina che non è più necessaria. Il parametro swap_offset specifica l'offset della pagina nel file di swap da liberare.
 
 - _swap_shutdown()_: funzione che chiude e libera le risorse associate allo Swapfile quando il sistema non ne ha più bisogno. Chiude il file di swap e rilascia la memoria utilizzata dalla bitmap.
+
+
+## Test
+Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
+- palin: eseguito con successo; effettua un semplice check su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
+- matmult: eseguito con successo; effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando la VM, consentendo di rilevare eventuali errori;
+- sort: eseguito con successo; ordina un array di grandi dimensioni usando l'algoritmo quick sort, 
+- zero: parte 1 eseguita con successo, parte 2 non verificabile in quanto necessita dell'implementazione della syscall sbrk()
