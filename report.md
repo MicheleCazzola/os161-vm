@@ -374,7 +374,9 @@ void swap_shutdown(void);
 
 ## Test
 Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
-- palin: eseguito con successo; effettua un semplice check su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
-- matmult: eseguito con successo; effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando la VM, consentendo di rilevare eventuali errori;
-- sort: eseguito con successo; ordina un array di grandi dimensioni usando l'algoritmo quick sort, 
+- palin: effettua un semplice check su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
+- matmult: effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando maggiormente la VM rispetto al precedente;
+- sort: ordina un array di grandi dimensioni usando l'algoritmo quick sort;
 - zero: parte 1 eseguita con successo, parte 2 non verificabile in quanto necessita dell'implementazione della syscall sbrk()
+- faulter: verifica che l'accesso illegale ad un'area di memoria produca l'interruzione del programma;
+- ctest: effettua l'attraversamento di una linked list;
