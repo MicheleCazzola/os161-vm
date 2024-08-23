@@ -4,6 +4,7 @@
  */
 
 #include <types.h>
+#include <lib.h>
 #include <vm.h>
 #include <mips/tlb.h>
 #include <vm_tlb.h>
@@ -35,9 +36,12 @@ static void vm_tlb_init_current_victim() {
  * Initializes TLB, both for entry invalidation and
  * round-robin replacement algorithm parameter 
  */
-void vm_tlb_init() {
+void vm_tlb_init(bool init_victim) {
     vm_tlb_invalidate_entries();
-    vm_tlb_init_current_victim();
+
+    if (init_victim) {
+        vm_tlb_init_current_victim();
+    }
 }
 
 /**
@@ -50,6 +54,8 @@ unsigned int vm_tlb_get_victim_round_robin() {
 
     victim = current_victim;
     current_victim = (current_victim + 1) % NUM_TLB;
+
+    //kprintf("victim: %d\n", victim);
 
     return victim;
 }
@@ -65,6 +71,8 @@ uint64_t vm_tlb_peek_victim() {
 
     victim_content = (victim_content | entry_hi) << 32;
     victim_content |= entry_lo;
+
+    //kprintf("read lower 0x%x at %d\n", entry_lo, current_victim);
 
     return victim_content;
 }
@@ -84,6 +92,8 @@ void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty, unsigned in
     if (dirty) {
         entry_lo |= TLBLO_DIRTY;
     }
+
+    //kprintf("write lower 0x%x at %d\n", entry_lo, index);
 
     tlb_write(entry_hi, entry_lo, index);
 }

@@ -73,7 +73,7 @@ void vmstats_increment(unsigned int stat_index) {
 void vmstats_show() {
     unsigned long i;
 
-    kprintf("--Virtual memory statistics--");
+    kprintf("--Virtual memory statistics--\n");
     for(i = 0; i < VMSTATS_NUM; i++) {
         kprintf("%s: %d\n", vmstats_names[i], vmstats_counts[i]);
     }

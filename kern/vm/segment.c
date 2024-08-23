@@ -352,7 +352,7 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
         vmstats_increment(VMSTAT_PAGE_FAULT_ELF);
     }
 
-    kprintf("Loading Page at %d, size: %d, offset: %d\n", load_paddr, load_len_bytes, (int)elf_offset);
+    //kprintf("Loading Page at %d, size: %d, offset: %d\n", load_paddr, load_len_bytes, (int)elf_offset);
 
     /**
      * Read from ELF file, given physical start addres in memory, start offset in ELF file
