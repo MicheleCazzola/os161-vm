@@ -15,4 +15,4 @@ main.o: ../../main/main.c ../../include/types.h \
  ../../include/synch.h opt-synch.h ../../include/mainbus.h \
  ../../include/vfs.h ../../include/device.h ../../include/syscall.h \
  opt-syscalls.h opt-fork.h ../../include/test.h ../../include/version.h \
- autoconf.h opt-hello.h ../../include/hello.h
+ ../../include/pagevm.h autoconf.h

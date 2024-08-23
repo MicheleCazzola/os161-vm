@@ -7,4 +7,4 @@ addrspace.o: ../../vm/addrspace.c ../../include/types.h \
  ../../include/pt.h ../../include/pagevm.h opt-paging.h \
  ../../include/proc.h ../../include/spinlock.h ../../include/hangman.h \
  opt-hangman.h includelinks/machine/spinlock.h opt-waitpid.h \
- ../../include/spl.h ../../include/vm_tlb.h
+ ../../include/spl.h ../../include/vm_tlb.h ../../include/vmstats.h
