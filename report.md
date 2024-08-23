@@ -18,7 +18,64 @@ Il progetto è stato realizzato utilizzando una _layer architecture_, con rare e
 - altri sono moduli ausiliari: l'astrazione per il TLB è utilizzata in diversi moduli per accedere alle sue funzionalità, le statistiche sono calcolate solo invocando funzioni di interfaccia. 
 
 ## Codice sorgente
+
 ### Address space
+
+Ogni processo possiede un address space che nel nostro caso viene rappresentato da 3 diversi segmenti: code, data e stack.
+
+#### Struttura Dati
+
+```C
+typedef struct {
+    ps_t *seg_code;
+    ps_t *seg_data;
+    ps_t *seg_stack;
+} addrspace_t ;
+```
+
+#### Implementazione
+
+Le funzioni di addrspace.c sono principalmente funzioni di alto livello che creano, gestiscono e distruggono l'address space appoggiandosi su funzioni di più basso livello implementate in segment.c. I prototipi corrispondenti sono:
+
+```C
+addrspace_t *as_create(void);
+void as_destroy(addrspace_t *);
+int as_copy(addrspace_t *src, addrspace_t **ret);
+void as_activate(void);
+void as_deactivate(void);
+int as_prepare_load(addrspace_t *as);
+int as_complete_load(addrspace_t *as);
+int as_define_stack(addrspace_t *as, vaddr_t *initstackptr);
+int as_define_region(addrspace_t *as,
+                                   vaddr_t vaddr, size_t memsize,
+                                   size_t file_size,
+                                   off_t offset,
+                                   struct vnode *v,
+                                   int readable,
+                                   int writeable,
+                                   int executable);
+ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr);
+ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr);
+```
+
+##### Creazione e distruzione
+
+Le funzioni _as_create_ e _as_destroy_ hanno il compito di allocare e liberare lo spazio di memoria necessario per ospitare la struttura dati; _as_destroy_ oltre a distruggere i 3 segmenti corrispondenti tramite la _seg_destroy_, ha anche il compito di chiudere il program file che viene lasciato aperto per permettere il loading dinamico. 
+
+##### Copia e attivazione
+
+Si utilizzano le funzioni:
+- _as_copy_: si occupa di creare un nuovo address space e copiarci quello ricevuto come parametro. Si basa sulla _seg_copy_
+- _as_activate_: questa funzione viene chiamata in _runprogram_ subito dopo aver creato e settato l'address space del processo. In particolare ha il compito di invalidare le entry della tlb e di inizializzare la vittima che eventualmente sarà sostituita nella tlb.
+
+##### Define
+
+Le funzioni _as_define_region_ e _as_define_stack_ vengono utilizzate per definire segmento codice e segmento dati per la _as_define_region_ e segmento stack per la _as_define_stack_. Esse fungono essenzialmente da wrapper per le relative funzioni di piu basso livelo. Ciò che aggiungo è il calcolo della dimensione dei relativi segmenti, dato necessario per le funzioni definite in segment.c.
+
+##### Find
+
+Sono presenti 2 funzioni che dato un address space e un indirizzo virtuale permettono di risalire al relativo segmento. Le due funzioni si differenziano nella granularità della ricerca, infatti la _as_find_segment_coarse_ controlla che l'indirizzo passato sia nei limiti dei vari segmenti ma allineati alla pagina. Entrambe le funzioni hanno il compito di calcolare inizio e fine dei 3 segmenti (code, data e stack) e verificare a quale di questi l'indirizzo passato appartiene.
+
 
 ### Gestore della memoria (pagevm)
 

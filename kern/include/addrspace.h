@@ -117,10 +117,10 @@ typedef struct {
  */
 
 addrspace_t *as_create(void);
+void as_destroy(addrspace_t *);
 int as_copy(addrspace_t *src, addrspace_t **ret);
 void as_activate(void);
 void as_deactivate(void);
-void as_destroy(addrspace_t *);
 int as_prepare_load(addrspace_t *as);
 int as_complete_load(addrspace_t *as);
 int as_define_stack(addrspace_t *as, vaddr_t *initstackptr);

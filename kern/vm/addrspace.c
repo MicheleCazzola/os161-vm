@@ -121,7 +121,7 @@ void as_activate(void)
     // Disable interrupts
     spl = splhigh();
 
-    // Initialize the TLB (Translation Lookaside Buffer)
+    // Initialize the TLB
     vm_tlb_init();
 
     // Restore interrupt state
@@ -297,7 +297,7 @@ int as_define_region(addrspace_t *as, vaddr_t vaddr, size_t memsize,int readable
 
 
 
-int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
+int as_define_stack(addrspace_t *as, vaddr_t *initstackptr)
 {
 
     vaddr_t stack_size = PAGEVM_STACKPAGES * PAGE_SIZE;
@@ -318,7 +318,7 @@ int as_define_stack(addrspace_t *as, vaddr_t *stackptr)
     }
 
 	/* Initial user-level stack pointer */
-	*stackptr = USERSTACK;
+	*initstackptr = USERSTACK;
 
 	return 0;
 }
