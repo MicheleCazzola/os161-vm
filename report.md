@@ -377,6 +377,6 @@ Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test gi√
 - palin: effettua un semplice check su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB n√© swap in di pagine;
 - matmult: effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando maggiormente la VM rispetto al precedente;
 - sort: ordina un array di grandi dimensioni usando l'algoritmo quick sort;
-- zero: parte 1 eseguita con successo, parte 2 non verificabile in quanto necessita dell'implementazione della syscall sbrk()
+- zero: verifica che le aree di memoria da azzerare in allocazione siano correttamente azzerate (si ignora il controllo effettuato sulla syscall sbrk());
 - faulter: verifica che l'accesso illegale ad un'area di memoria produca l'interruzione del programma;
 - ctest: effettua l'attraversamento di una linked list;
