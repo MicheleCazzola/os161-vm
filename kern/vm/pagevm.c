@@ -46,7 +46,7 @@ void pagevm_can_sleep(void)
  */
 void vm_bootstrap(void)
 {
-    vm_tlb_init(true);
+    vm_tlb_reset_current_victim();
     coremap_init();
     swap_init();
     vmstats_init();

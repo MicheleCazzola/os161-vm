@@ -17,7 +17,7 @@ static unsigned int current_victim;
 /**
  * Invalidates all TLB entries
  */
-static void vm_tlb_invalidate_entries() {
+void vm_tlb_invalidate_entries() {
     unsigned long i;
 
     for(i = 0; i < NUM_TLB; i++) {
@@ -28,20 +28,8 @@ static void vm_tlb_invalidate_entries() {
 /**
  * Initializes (or resets) replacement algorithm parameter
  */
-static void vm_tlb_init_current_victim() {
+void vm_tlb_reset_current_victim() {
     current_victim = 0;
-}
-
-/**
- * Initializes TLB, both for entry invalidation and
- * round-robin replacement algorithm parameter 
- */
-void vm_tlb_init(bool init_victim) {
-    vm_tlb_invalidate_entries();
-
-    if (init_victim) {
-        vm_tlb_init_current_victim();
-    }
 }
 
 /**

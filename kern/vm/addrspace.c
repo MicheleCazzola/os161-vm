@@ -123,7 +123,7 @@ void as_activate(void)
     spl = splhigh();
 
     // Initialize the TLB (Translation Lookaside Buffer), only for entries invalidation
-    vm_tlb_init(false);
+    vm_tlb_invalidate_entries();
 
     // Register TLB invalidation
     vmstats_increment(VMSTAT_TLB_INVALIDATION);

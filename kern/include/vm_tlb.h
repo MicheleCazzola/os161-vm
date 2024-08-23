@@ -11,8 +11,11 @@
 /**
  * Functions description
  * 
- * VM_TLB_init: used to initialize TLB, needed at each process start and at bootstrap.
+ * VM_TLB_invalidate_entries: used to initialize TLB, needed at each process start.
  * 
+ * VM_TLB_reset_current_victim: used to reset to 0 the index of the TLB current victim in the round
+ * robin algorithm, needed at the VM bootstrap.
+ *
  * VM_TLB_get_victim_round_robin: executes replacement algorithm, returning victim index.
  * Needed on TLB misses, when necessary to load a new entry into TLB.
  * 
@@ -25,7 +28,8 @@
  * 
  */
 
-void vm_tlb_init(bool init_victim);
+void vm_tlb_invalidate_entries(void);
+void vm_tlb_reset_current_victim(void);
 unsigned int vm_tlb_get_victim_round_robin(void);
 uint64_t vm_tlb_peek_victim(void);
 void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty, unsigned int index);
