@@ -76,8 +76,42 @@ Le funzioni _as_define_region_ e _as_define_stack_ vengono utilizzate per defini
 
 Sono presenti 2 funzioni che dato un address space e un indirizzo virtuale permettono di risalire al relativo segmento. Le due funzioni si differenziano nella granularità della ricerca, infatti la _as_find_segment_coarse_ controlla che l'indirizzo passato sia nei limiti dei vari segmenti ma allineati alla pagina. Entrambe le funzioni hanno il compito di calcolare inizio e fine dei 3 segmenti (code, data e stack) e verificare a quale di questi l'indirizzo passato appartiene.
 
-
 ### Gestore della memoria (pagevm)
+
+In questo modulo vengono raccolte e utilizzate molte delle funzioni chiave implementate per questo progetto. Il modulo ha il compito di inizializzare e terminare l'intera gestione della memoria virtuale, oltre a gestire eventuali fault della memoria.
+
+#### Implementazione
+
+Le funzioni implementate in questo modulo sono:
+
+```C
+void vm_bootstrap(void);
+void vm_shutdown(void);
+int vm_fault(int faulttype, vaddr_t faultaddress);
+void pagevm_can_sleep(void);
+```
+
+#### Inizializzazione e Terminazione
+
+Le funzioni _vm_bootstrap_ e _vm_shutdown_ hanno il compito, rispettivamente, di inizializzare e distruggere tutte le strutture accessorie necessarie per la gestione della memoria virtuale. Tra queste strutture figurano la coremap, il sistema di swap, la TLB e il sistema di raccolta delle statistiche. Queste funzioni fungono essenzialmente da contenitori che richiamano le routine di inizializzazione e terminazione di altri moduli.
+
+- **vm_bootstrap**: Questa funzione viene chiamata durante l'avvio del sistema per configurare l'intero sistema di memoria virtuale. Tra le operazioni principali, resetta il puntatore della vittima nella TLB, inizializza la coremap, imposta il sistema di swap e prepara il modulo di gestione delle statistiche.
+  
+- **vm_shutdown**: Questa funzione viene invocata durante lo spegnimento del sistema per rilasciare in modo sicuro le risorse utilizzate e stampare le statistiche sull'uso della memoria. Gestisce la chiusura del sistema di swap, della coremap e produce l'output delle statistiche raccolte.
+
+#### Gestione dei Fault
+
+La funzione centrale di questo modulo è _vm_fault_, che si occupa della gestione dei TLB miss.
+
+- **vm_fault**: Questa funzione ha il compito di gestire la creazione di una nuova corrispondenza tra indirizzo fisico e indirizzo virtuale nella TLB ogni volta che si verifica un TLB miss. Il funzionamento della funzione si articola nei seguenti passaggi:
+
+  1. **Verifica del Fault**: La funzione inizia verificando il tipo di fault (ad esempio, read-only, read, write) e assicurandosi che il processo corrente e il suo spazio di indirizzamento siano validi.
+  
+  2. **Recupero dell'Indirizzo Fisico**: Successivamente, recupera l'indirizzo fisico corrispondente all'indirizzo virtuale in cui si è verificato il fault utilizzando la funzione _seg_get_paddr_.
+  
+  3. **Gestione della Pagina**: Se il fault è dovuto a una pagina non ancora assegnata o a una pagina precedentemente swap-out, viene allocata una nuova pagina. In base al tipo di fault, vengono quindi chiamate le funzioni di basso livello _seg_add_pt_entry_ (per aggiungere la nuova pagina alla tabella delle pagine) o _seg_swap_in_ (per caricare la pagina dallo swap).
+  
+  4. **Aggiornamento della TLB**: Infine, utilizzando un algoritmo round-robin, viene scelta la vittima da sostituire nella TLB e la TLB viene aggiornata con la nuova corrispondenza indirizzo fisico-virtuale.
 
 ### Segmento
 Un processo è costituito da diversi segmenti, che sono aree di memoria aventi una semantica comune; nel nostro caso, ogni processo ha tre segmenti:
