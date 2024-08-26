@@ -39,6 +39,7 @@
 #include <vm.h>
 #include <mainbus.h>
 #include <syscall.h>
+#include "opt-paging.h"
 
 
 /* in exception-*.S */
@@ -85,10 +86,22 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 		KASSERT(0);
 		sig = SIGABRT;
 		break;
+		/**
+		 * In case of TLB miss on read/write or TLB attempt to write on
+		 * a read-only page, the error is handled with the following error message.
+		 * This event is usually caused by a non-zero return value in vm_fault.
+		 * By calling sys__exit, the process is gracefully terminated, and its
+		 * resources are released, avoiding a panic of the OS.
+		 */
 	    case EX_MOD:
 	    case EX_TLBL:
 	    case EX_TLBS:
 		sig = SIGSEGV;
+#if OPT_PAGING
+		kprintf("Segmentation fault\n(%s, epc 0x%x, vaddr 0x%x)\n", trapcodenames[code], epc, vaddr);
+		sys__exit(-1);
+		return;
+#endif
 		break;
 	    case EX_ADEL:
 	    case EX_ADES:

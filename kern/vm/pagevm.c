@@ -80,7 +80,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
     vaddr_t page_aligned_fault_address = faultaddress & PAGE_FRAME;
     char unpopulated;
     int result, spl;
-    unsigned int tlb_index;
     uint64_t peek;
 
     //check that the fault type is correct
@@ -164,13 +163,12 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
         vmstats_increment(VMSTAT_TLB_MISS_REPLACE);
     }else{
         vmstats_increment(VMSTAT_TLB_MISS_FREE);
+
     }
 
     vmstats_increment(VMSTAT_TLB_MISS);
 
-    tlb_index = vm_tlb_get_victim_round_robin();
-
-    vm_tlb_write(faultaddress, physical_address, process_segment->permissions == PAGE_RW || process_segment->permissions == PAGE_STACK, tlb_index);
+    vm_tlb_write(faultaddress, physical_address, process_segment->permissions == PAGE_RW || process_segment->permissions == PAGE_STACK);
 
     splx(spl);
     

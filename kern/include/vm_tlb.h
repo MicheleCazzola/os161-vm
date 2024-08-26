@@ -30,8 +30,7 @@
 
 void vm_tlb_invalidate_entries(void);
 void vm_tlb_reset_current_victim(void);
-unsigned int vm_tlb_get_victim_round_robin(void);
 uint64_t vm_tlb_peek_victim(void);
-void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty, unsigned int index);
+void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty);
 
 #endif  /* _VM_TLB_H */
