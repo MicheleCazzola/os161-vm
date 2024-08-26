@@ -266,7 +266,21 @@ Ogni entry della page table (ovvero ogni singolo elemento del buffer di pagine) 
 Il modulo _vm_tlb.c_ (e relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, solo funzioni che svolgono funzione di wrapper (o poco più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
 
 #### Implementazione
+Le funzioni implementate in questo modulo hanno i prototipi seguenti:
+```C
+void vm_tlb_invalidate_entries(void);
+void vm_tlb_reset_current_victim(void);
+uint64_t vm_tlb_peek_victim(void);
+void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty);
+```
 
+e svolgono i compiti seguenti:
+- _vm_tlb_invalidate_entries_: invalida tutte le entries del TLB, utilizzando le apposite maschere definite in _mips/tlb.h_; è invocata da _as_activate_, ovvero all'inizio del processo e ad ogni context switching;
+- _vm_tlb_reset_current_victim_: resetta a 0 la posizione della vittima dell'algoritmo round-robin, usato per gestire il replacement; è invocata da _vm_bootstrap_, durante il bootstrap del sistema operativo;
+- _vm_tlb_peek_victim_: effettua una lettura nel TLB (mediante la funzione _tlb_read_), della entry corrispondente alla vittima corrente; è utilizzata per verificare che la vittima corrente sia una entry valida o meno, per fini statistici;
+- _vm_tlb_write_: scrive la coppia (_vaddr_, _paddr_), all'interno della entry corrispondente alla vittima corrente (che a sua volta può essere una entry valida o meno), utilizzando la funzione _tlb_write_; la posizione della vittima è ricavata attraverso la funzione _vm_tlb_get_victim_round_robin_, che incrementa di un'unità (in modo circolare) l'indice della vittima, per poi ritornare quella corrente, eseguendo di fatto l'algoritmo di replacement; è invocata in seguito ad una TLB miss, in assenza di altri errori. Inoltre, se l'indirizzo virtuale appartiene ad una pagina con permesso di scrittura, viene settato il _dirty bit_, il quale (nel TLB di os161) indica se la entry corrispondente contiene l'indirizzo di una pagina _writable_.
+
+Le funzioni _tlb_read_ e _tlb_write_ sono implementate direttamente in linguaggio assembly e i loro prototipi sono definiti nel file _mips/tlb.h_.
 
 ### Statistiche
 Il modulo _vmstats.c_ (e relativo header file) contiene le strutture dati e le funzioni per la gestione delle statistiche relative al gestore della memoria.
@@ -322,7 +336,7 @@ ovvero:
 #### Implementazione
 Le funzioni implementate in questo modulo hanno i prototipi seguenti:
 ```C
-void vmstats_init(void);
+void vmstats_init(void);    
 void vmstats_increment(unsigned int stat_index);
 void vmstats_show(void);
 ```
@@ -419,20 +433,20 @@ In questo modo, è possibile evitare un _panic_ del sistema operativo, qualora s
 
 ## Test
 Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
-- palin: effettua un semplice check su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
-- matmult: effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando maggiormente la VM rispetto al precedente;
-- sort: ordina un array di grandi dimensioni usando l'algoritmo quick sort;
-- zero: verifica che le aree di memoria da azzerare in allocazione siano correttamente azzerate (si ignora il controllo effettuato sulla syscall sbrk());
-- faulter: verifica che l'accesso illegale ad un'area di memoria produca l'interruzione del programma;
-- ctest: effettua l'attraversamento di una linked list;
-- huge: alloca e manipola un array di grandi dimensioni.
+- _palin_: effettua un semplice check su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
+- _matmult_: effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando maggiormente la VM rispetto al precedente;
+- _sort_: ordina un array di grandi dimensioni usando l'algoritmo quick sort;
+- _zero_: verifica che le aree di memoria da azzerare in allocazione siano correttamente azzerate (si ignora il controllo effettuato sulla syscall sbrk());
+- _faulter_: verifica che l'accesso illegale ad un'area di memoria produca l'interruzione del programma;
+- _ctest_: effettua l'attraversamento di una linked list;
+- _huge_: alloca e manipola un array di grandi dimensioni.
 
 Per assicurarci che le funzioni basilari del kernel fossero già correttamente implementate, abbiamo eseguito i kernel test seguenti:
-- at: gestione degli array;
-- at2: come il precedente, ma con array di grandi dimensioni;
-- bt: gestione della bitmap;
-- km1: verifica della kmalloc;
-- km2: come il precedente, ma in condizioni di stress.
+- _at_: gestione degli array;
+- _at2_: come il precedente, ma con array di grandi dimensioni;
+- _bt_: gestione della bitmap;
+- _km1_: verifica della kmalloc;
+- _km2_: come il precedente, ma in condizioni di stress.
 
 Di seguito si riportano le statistiche registrate per ogni test: ognuno è stato eseguito una volta sola, per poi effettuare lo shutdown del sistema.
 
