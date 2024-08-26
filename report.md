@@ -405,6 +405,17 @@ void swap_shutdown(void);
 
 - _swap_shutdown()_: funzione che chiude e libera le risorse associate allo Swapfile quando il sistema non ne ha più bisogno. Chiude il file di swap e rilascia la memoria utilizzata dalla bitmap.
 
+### Modifiche ad altri file
+Di seguito si riportano le modifiche (minoritarie, ma necessarie) effettuate ad altri file del kernel di os161, già esistenti nella versione di partenza
+
+#### trap.c
+All'interno della funzione _kill_curthread_, in caso di:
+- TLB miss in read/write;
+- TLB write su segmento di memoria read-only;
+
+viene eseguita una stampa di errore, seguita da una chiamata alla system call _sys__exit_, per effettuare la terminazione _graceful_ del processo, liberando le risorse allocate; ciò avviene di solito in seguito alla restituzione di un valore non nullo da parte della funzione _vm_fault_.
+
+In questo modo, è possibile evitare un _panic_ del sistema operativo, qualora si verifichi un errore di questo tipo, permettendo sia l'esecuzione di ulteriori test (o la ripetizione dello stesso); inoltre, ciò permette di terminare correttamente il sistema operativo (con il comando _q_), tracciando le statistiche per il test _faulter_.
 
 ## Test
 Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
@@ -414,3 +425,23 @@ Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test gi�
 - zero: verifica che le aree di memoria da azzerare in allocazione siano correttamente azzerate (si ignora il controllo effettuato sulla syscall sbrk());
 - faulter: verifica che l'accesso illegale ad un'area di memoria produca l'interruzione del programma;
 - ctest: effettua l'attraversamento di una linked list;
+- huge: alloca e manipola un array di grandi dimensioni.
+
+Per assicurarci che le funzioni basilari del kernel fossero già correttamente implementate, abbiamo eseguito i kernel test seguenti:
+- at: gestione degli array;
+- at2: come il precedente, ma con array di grandi dimensioni;
+- bt: gestione della bitmap;
+- km1: verifica della kmalloc;
+- km2: come il precedente, ma in condizioni di stress.
+
+Di seguito si riportano le statistiche registrate per ogni test: ognuno è stato eseguito una volta sola, per poi effettuare lo shutdown del sistema.
+
+| Nome test | TLB faults | TLB faults (free) | TLB faults (replace) | TLB invalidations | TLB reloads | Page faults (zeroed) | Page faults (disk) | Page faults (ELF) | Page faults (swapfile) | Swapfile writes |
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+|palin|13889|13889|0|7789|13884|1|4|4|0|0|
+|matmult|4342|4323|19|1222|3534|380|428|3|425|733|
+|sort|7052|7014|38|3144|5316|289|1447|4|1443|1661|
+|zero|143|143|0|139|137|3|3|3|0|0|
+|faulter|61|61|0|132|58|2|1|1|0|0|
+|ctest|248591|248579|12|249633|123627|257|124707|3|124704|124889|
+|huge|7459|7441|18|6752|3880|512|3067|3|3064|3506|
