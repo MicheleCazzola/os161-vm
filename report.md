@@ -439,7 +439,7 @@ Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test gi�
 - _ctest_: effettua l'attraversamento di una linked list;
 - _huge_: alloca e manipola un array di grandi dimensioni.
 
-Per assicurarci che le funzioni basilari del kernel fossero già correttamente implementate, abbiamo eseguito i kernel test seguenti:
+Per assicurarci che le funzioni basilari del kernel fossero già correttamente implementate, abbiamo eseguito i kernel tests seguenti:
 - _at_: gestione degli array;
 - _at2_: come il precedente, ma con array di grandi dimensioni;
 - _bt_: gestione della bitmap;
