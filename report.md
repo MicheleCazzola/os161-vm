@@ -120,6 +120,7 @@ Un processo è costituito da diversi segmenti, che sono aree di memoria aventi u
 - stack: contiene gli stack frame delle funzioni chiamate durante l'esecuzione del processo, è read-write.
 
 Essi non sono necessariamente contigui in memoria fisica, pertanto la soluzione adottata è la realizzazione di una page table per ognuno di essi; il numero di pagine necessarie è calcolato a valle della lettura dell'eseguibile, tranne che nel caso dello stack, in cui è costante.
+
 #### Strutture dati
 La struttura dati che rappresenta il singolo segmento è definita in _segment.h_ ed è la seguente:
 ```C
@@ -237,8 +238,7 @@ Si utilizzano le funzioni:
     * utilizza l'analoga funzione del modulo _pt_ per inserire la corrispondenza (indirizzo virtuale, indirizzo fisico) nella entry opportuna.
  
 ### Page table
-Come detto in precedenza, sono presenti tre page table per ogni processo, una per ognuno dei tre segmenti che li costituiscono; per questa ragione, non sono necessarie forme di locking, in quanto la page table
-non è una risorsa condivisa tra diversi processi, ma propria di un singolo processo.
+Come detto in precedenza, sono presenti tre page table per ogni processo, una per ognuno dei tre segmenti che li costituiscono; per questa ragione, non sono necessarie forme di locking, in quanto la page table non è una risorsa condivisa tra diversi processi, ma propria di un singolo processo.
 
 #### Strutture dati
 La struttura dati utilizzata per rappresentare la page table è definita in _pt.h_ ed è la seguente:
@@ -259,6 +259,48 @@ Ogni entry della page table (ovvero ogni singolo elemento del buffer di pagine) 
 - PT_SWAPPED_ENTRY (1): poiché 1 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una pagina di cui è stato effettuato swap out; dei 31 bit rimanenti, i meno significativi
   vengono utilizzati per rappresentare l'offset della pagina nello swapfile (esso ha dimensione 9 MB, pertanto sarebbero sufficienti 24 bit);
 - altri valori: in questo caso è presente un indirizzo fisico valido per la pagina, ovvero essa è presente in memoria e non è avvenuto un page fault.
+
+Per poter ricavare in modo semplice l'indice della entry nel buffer, a partire da un indirizzo virtuale, il buffer è stato realizzato in modo che ogni entry occupi un'intera pagina: ciò occupa più memoria, ma semplifica notevolmente lo svolgimento di quasi tutte le operazioni effettuate sulla page table, in quanto ricavare l'indice a partire da un indirizzo virtuale è necessario in molte di esse.
+
+#### Implementazione
+Le funzioni di gestione della page table, come nel caso dei segmenti, si suddividono in diversi gruppi a seconda del compito che svolgono. I prototipi, definiti nel file _pt.h_, sono i seguenti:
+```C
+pt_t *pt_create(unsigned long num_pages, vaddr_t base_address);
+int pt_copy(pt_t *src, pt_t **dest);
+paddr_t pt_get_entry(pt_t *pt, vaddr_t vaddr);
+void pt_add_entry(pt_t *pt, vaddr_t vaddr, paddr_t paddr);
+void pt_clear_content(pt_t *pt);
+void pt_swap_out(pt_t *pt, off_t swapfile_offset, vaddr_t vaddr);
+void pt_swap_in(pt_t *pt, vaddr_t vaddr, paddr_t paddr);
+off_t pt_get_swap_offset(pt_t *pt, vaddr_t vaddr);
+void pt_destroy(pt_t *pt);
+```
+
+##### Creazione e copia
+Si utilizzano le funzioni:
+- _pt_create_: alloca una nuova page table, definendo il numero di pagine e l'indirizzo virtuale di partenza, passati come parametri; il buffer utilizzato per la paginazione è allocato e azzerato, utilizzando la costante _PT_EMPTY_ENTRY_, in quanto inizialmente la page table è vuota;
+- _pt_copy_: copia il contenuto di una page table in una nuova, allocata all'interno della funzione; è utilizzato soltanto nel contesto della copia di un address space, invocato da _seg_copy_.
+
+##### Cancellazione e distruzione
+Si utilizzano le funzioni:
+- _pt_clear_content_: effettua i side effects della cancellazione del contenuto della page table su swapfile e memoria fisica:
+  * se una entry è _swapped_, la elimina dallo swapfile;
+  * se una entry è in memoria, libera la memoria fisica,
+  ed è utilizzata in fase di distruzione di un address space, invocata da _seg_destroy_;
+- _pt_destroy_: rilascia le risorse di memoria detenute dalla page table, inclusi i buffer contenuti all'interno; come la precedente, è utilizzata in fase di distruzione di un address space ed è invocata da _seg_destroy_.
+
+##### Operazioni di traduzione indirizzi
+Si utilizzano le funzioni:
+- _pt_get_entry_: ottiene l'indirizzo fisico di una pagina a partire dall'indirizzo virtuale; in particolare, ritorna le costanti:
+  * _PT_EMPTY_ENTRY_ se l'indirizzo virtuale appartiene ad una pagina non memorizzata e non _swapped_;
+  * _PT_SWAPPED_ENTRY_ se l'indirizzo virtuale appartiene ad una pagina _swapped_;
+- _pt_add_entry_: inserisce un indirizzo fisico nella entry corrispondente all'indirizzo virtuale; entrambi sono passati come parametri e, in particolare, l'indirizzo fisico è opportunamente ricavato e fornito dal chiamante.
+
+##### Operazioni di swapping
+Si utilizzano le funzioni:
+- _pt_swap_out_: segna come _swapped_ la entry corrispondente all'indirizzo virtuale fornito; utilizzando la costante _PT_SWAPPED_MASK_, memorizza anche l'offset nello swapfile della pagina a cui l'indirizzo virtuale appartiene;
+- _pt_swap_in_: duale della precedente, di fatto solo un wrapper per _pt_add_entry_, in quanto necessita della scrittura di un nuovo indirizzo fisico in corrispondenza della entry relativa alla pagina a cui appartiene l'indirizzo virtuale dato;
+- _pt_get_swap_offset_: dato un indirizzo virtuale, ricava l'offset nello swapfile della pagina a cui esso appartiene, attraverso i 31 bit più significativi della entry corrispondente; è utilizzata durante l'operazione di swap in, invocata da _seg_swap_in_. 
 
 ### TLB
 Il modulo _vm_tlb.c_ (e relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, solo funzioni che svolgono funzione di wrapper (o poco più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
