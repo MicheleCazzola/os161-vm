@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, Filippo Forte - 2024
+ * Authors: Michele Cazzola - 2024
  * TLB high-level handling, including replacement policy
  */
 
@@ -15,9 +15,6 @@
  * 
  * VM_TLB_reset_current_victim: used to reset to 0 the index of the TLB current victim in the round
  * robin algorithm, needed at the VM bootstrap.
- *
- * VM_TLB_get_victim_round_robin: executes replacement algorithm, returning victim index.
- * Needed on TLB misses, when necessary to load a new entry into TLB.
  * 
  * VM_TLB_peek_victim: reads TLB victim entry, without executing replacement.
  * Needed on TLB misses, when it is necessary to understand whether the selected entry

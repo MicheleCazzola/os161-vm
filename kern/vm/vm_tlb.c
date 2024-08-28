@@ -10,13 +10,13 @@
 #include <vm_tlb.h>
 
 /**
- * Current victim to be replaced in TLB
+ * Index of current victim, to be replaced in TLB
  */
 static unsigned int current_victim;
 
 /**
  * Round-robin replacement algorithm execution: current victim is
- * selected, and algorithm parameter is modified, following the policy used
+ * selected, and algorithm parameter is modified
  */
 static unsigned int vm_tlb_get_victim_round_robin() {
 
@@ -24,8 +24,6 @@ static unsigned int vm_tlb_get_victim_round_robin() {
 
     victim = current_victim;
     current_victim = (current_victim + 1) % NUM_TLB;
-
-    //kprintf("victim: %d\n", victim);
 
     return victim;
 }
@@ -64,8 +62,8 @@ uint64_t vm_tlb_peek_victim() {
 }
 
 /**
- * Writes a TLB entry to the victim position and advances it
- * NOTE: to decide whether consider dirty bit handling or not
+ * Writes a TLB entry to the victim position and advances.
+ * Dirty bit is used to mark the entry as writable page.
  */
 void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty) {
 
@@ -75,7 +73,7 @@ void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty) {
     entry_hi = vaddr & PAGE_FRAME;
     entry_lo = paddr | TLBLO_VALID;
 
-    /* Marks entry as writable: in os161, dirty bit set means that the page is writable */
+    /* Marks entry as writable: in os161, if dirty bit is set means that the page is writable */
     if (dirty) {
         entry_lo |= TLBLO_DIRTY;
     }

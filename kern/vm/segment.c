@@ -51,7 +51,7 @@ ps_t *seg_create(void) {
 int seg_define(ps_t *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
                 size_t num_pages, size_t seg_size_words, struct vnode *elf_vnode, char read, char write, char execute) {
     
-    KASSERT(read);  /* Read operation should be always allowed */
+    KASSERT(read);                              /* Read operation should be always allowed */
     KASSERT(proc_seg != NULL);
     KASSERT(elf_vnode != NULL);
     KASSERT(proc_seg->page_table == NULL);
@@ -161,7 +161,10 @@ int seg_copy(ps_t *src, ps_t **dest) {
     if (src->permissions != PAGE_STACK) {
         writable = (src->permissions == PAGE_RW) ? 1 : 0;
         executable = (src->permissions == PAGE_EXE) ? 1 : 0;
-        seg_define_result = seg_define(new_seg, src->seg_size_bytes, src->file_offset, src->base_vaddr, src->num_pages, src->seg_size_words, src->elf_vnode, 1, writable, executable);
+        seg_define_result = seg_define(
+            new_seg, src->seg_size_bytes, src->file_offset, src->base_vaddr, 
+            src->num_pages, src->seg_size_words, src->elf_vnode, 1, writable, executable
+        );
     }
     else {
         seg_define_result = seg_define_stack(new_seg, src->base_vaddr, src->num_pages);
@@ -241,7 +244,9 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
 
     KASSERT(index < proc_seg->num_pages);
 
-    // Offset of segment start virtual address in its first page
+    /**
+     *  Offset of segment start virtual address in its first page
+     */  
     seg_base_offset_in_page = proc_seg->base_vaddr & (~PAGE_FRAME);
 
     /**
@@ -251,10 +256,14 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
      * portion of the physical frame.
      */
     if (index == 0) {
-        // Physical frame is filled as it was in the ELF file
+        /**
+         * Physical frame is filled as it was in the ELF file
+         */
         load_paddr = paddr + seg_base_offset_in_page;
 
-        // Loading starts from the beginning of the segment virtual space
+        /**
+         * Loading starts from the beginning of the segment virtual space
+         */
         elf_offset = proc_seg->file_offset;
 
         /**
@@ -275,8 +284,10 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
      * The other portion of the page must be zeroed.
      */
     else if (index == proc_seg->num_pages - 1) {
-
-        // Loading starts at page beginning
+        
+        /**
+         * Loading starts at page beginning
+         */
         load_paddr = paddr;
 
         /**
@@ -307,7 +318,9 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
      * a portion of it or it could be zero. The other portion of the page must be zeroed.
      */
     else {
-        // Loading starts at page beginning
+        /**
+         * Loading starts at page beginning
+         */
         load_paddr = paddr;
 
         /**
@@ -351,8 +364,6 @@ int seg_load_page(ps_t *proc_seg, vaddr_t vaddr, paddr_t paddr) {
         vmstats_increment(VMSTAT_PAGE_FAULT_DISK);
         vmstats_increment(VMSTAT_PAGE_FAULT_ELF);
     }
-
-    //kprintf("Loading Page at %d, size: %d, offset: %d\n", load_paddr, load_len_bytes, (int)elf_offset);
 
     /**
      * Read from ELF file, given physical start addres in memory, start offset in ELF file

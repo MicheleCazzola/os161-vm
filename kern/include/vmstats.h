@@ -1,5 +1,5 @@
 /**
- * Authors: Michele Cazzola, - 2024
+ * Authors: Michele Cazzola - 2024
  * Statistics registration for memory handling
  */
 
