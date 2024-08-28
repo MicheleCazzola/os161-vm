@@ -39,7 +39,6 @@ int swap_init(void)
     result = vfs_open(path, O_RDWR | O_CREAT, 0, &swapfile);
     if (result) {
         panic("swapfile.c: Failed to open the swap file");
-        //return EIO;  // Error opening swap file
     }
 
 #if SWAP_DEBUG
@@ -89,8 +88,6 @@ int swap_out(paddr_t page_paddr, off_t *ret_offset)
     result = bitmap_alloc(swapmap, &free_index);
     if (result) {
         panic("swapfile.c: No space available in swap file");
-        //spinlock_release(&swaplock);
-        //return ENOSPC;  // No space available in swap file
     }
     spinlock_release(&swaplock);
 
@@ -102,7 +99,6 @@ int swap_out(paddr_t page_paddr, off_t *ret_offset)
     VOP_WRITE(swapfile, &u);
     if (u.uio_resid != 0) {
         panic("swapfile.c: Failed to write to swap file");
-        //return EIO; //Error writing to swap file
     }
 
     *ret_offset = free_offset;
@@ -130,8 +126,6 @@ int swap_in(paddr_t page_paddr, off_t swap_offset) {
     spinlock_acquire(&swaplock);
     if (!bitmap_isset(swapmap, swap_index)) {
         panic("swapfile.c: Accessing an uninitialized page in swap file");
-        //spinlock_release(&swaplock);
-        //return EINVAL;  // Accessing an uninitialized page in swap file
     }
     spinlock_release(&swaplock);
 
@@ -140,7 +134,6 @@ int swap_in(paddr_t page_paddr, off_t swap_offset) {
     VOP_READ(swapfile, &u);
     if (u.uio_resid != 0) {
         panic("swapfile.c: Failed to read from swap file");
-        //return EIO; //Error reading from swap file
     }
 
     spinlock_acquire(&swaplock);
@@ -166,9 +159,7 @@ void swap_free(off_t swap_offset) {
 
     spinlock_acquire(&swaplock);
     if (!bitmap_isset(swapmap, swap_index)) {
-        panic("swapfile.c: Attempting to free an uninitialized page");
-        //spinlock_release(&swaplock);
-        //return;  // Invalid attempt to free an uninitialized page
+        panic("swapfile.c: Invalid attempt to free an uninitialized page");
     }
 
     /* Mark the page as free without zeroing it */
