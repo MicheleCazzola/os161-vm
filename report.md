@@ -152,8 +152,7 @@ typedef enum {
 - _elf_vnode_: puntatore al vnode del file eseguibile a cui il segmento appartiene;
 - _page_table_: puntatore alla page table associata al segmento
 
-Nel caso in cui la dimensione effettiva del segmento sia inferiore a quella occupata dal numero di pagine necessarie a salvarlo in memoria (ovvero in presenza di frammentazione interna), il residuo viene
-completamente azzerato.
+Nel caso in cui la dimensione effettiva del segmento sia inferiore a quella occupata dal numero di pagine necessarie a salvarlo in memoria, il residuo viene completamente azzerato.
 
 #### Implementazione
 Le funzioni di questo modulo si occupano di svolgere operazioni a livello segmento, eventualmente agendo da semplici wrapper per funzioni di livello inferiore. Esse sono utilizzate all'interno dei moduli _addrspace_ o _pagevm_; i prototipi sono i seguenti:
@@ -184,47 +183,46 @@ Si utilizzano le funzioni:
 - _seg_define_: definisce il valore dei campi del segmento dato, utilizzando i parametri passati dal chiamante (ovvero _as_define_region_); essi non includono informazioni riguardanti la page table, che viene definita in seguito; tale funzione è utilizzata solo per le regioni di codice e dati, non per lo stack;
 - _seg_define_stack_: come la precedente, ma utilizzata solo per lo stack e invocata da _as_define_stack_; per la natura dello stack:
     * esso non esiste all'interno del file, pertanto offset e dimensione nel file sono campi azzerati;
-    * il numero di pagine è pari alla costante _PAGEVM_STACKPAGES_ che, coerentemente con quanto definito nativamente in os161, è pari a 18;
+    * il numero di pagine è definito dalla costante _PAGEVM_STACKPAGES_ che è pari a 18;
     * la dimensione occupata in memoria (parole intere) è legata direttamente al numero di pagine, secondo la costante _PAGE_SIZE_;
-    * il puntatore al vnode è _NULL_, in quanto non è necessario mantenere tale informazione: essa è utilizzata, per le altre regioni, per caricare pagine in memoria dall'eseguibile, cosa che non avviene nel caso dello stack.
-Essa effettua anche l'allocazione della page table, per coerenza con il pattern seguito dalla configurazione _DUMBVM_, in cui la funzione di preparazione non viene invocata sul segmento di stack.
+    * il puntatore al vnode è _NULL_, in quanto non è necessario mantenere tale informazione: essa è utilizzata, per le altre regioni, per caricare pagine in memoria dall'eseguibile, cosa che non avviene nel caso dello stack. Essa effettua anche l'allocazione della page table, per coerenza con il pattern seguito dalla configurazione _DUMBVM_, in cui la funzione di preparazione non viene invocata sul segmento di stack.
 - _seg_prepare_: utilizzata per allocare la page table relativa ai segmenti codice e dati, invocata una volta per ognuno dei segmenti, all'interno di _as_prepare_load_;
 - _seg_copy_: effettua la copia in profondità di un segmento dato in un segmento destinazione, invocata in _as_copy_; si avvale dell'analoga funzione del modulo _pt_ per la copia della page table.
 
 ##### Operazioni di traduzione indirizzi
 Si utilizzano le funzioni:
-- _seg_get_paddr_: ottiene l'indirizzo fisico di una pagina di memoria, dato l'indirizzo virtuale che ha causato una TLB miss; è invocata da _vm_fault_, in seguito ad una TLB miss; utilizza direttamente la funzione analoga del modulo _pt_
+- _seg_get_paddr_: ottiene l'indirizzo fisico di una pagina di memoria, dato l'indirizzo virtuale che ha causato una TLB miss; è invocata da _vm_fault_, in seguito ad una TLB miss; utilizza direttamente la funzione analoga del modulo _pt_;
 - _seg_add_pt_entry_: aggiunge alla page table la coppia (indirizzo virtuale, indirizzo fisico), passati come parametri, utilizzando l'analoga funzione del modulo _pt_; viene invocata in _vm_fault_, in seguito ad una TLB miss.
 
 ##### Loading (dinamico) di una pagina dall'eseguibile
-Si utilizza la funzione _seg_load_page_, che costituisce buona parte della complessità di questo modulo e consente, di fatto, di implementare il loading dinamico delle pagine del programma dall'eseguibile. Dato il segmento associato, l'obiettivo è caricare in memoria la pagina associata ad un indirizzo virtuale (posto che essa non fosse né residente in memoria né _swapped_), ad un indirizzo fisico già opportunamente ricavato.
+Si utilizza la funzione _seg_load_page_, che costituisce buona parte della complessità di questo modulo e consente, di fatto, di implementare il loading dinamico delle pagine del programma dall'eseguibile. Dato il segmento associato, l'obiettivo è caricare in memoria la pagina associata ad un indirizzo virtuale (posto che essa non fosse né residente in memoria né _swapped_), ad un indirizzo fisico già opportunamente ricavato (e passato come parametro).
 
 La pagina richiesta è rappresentata da un indice all'interno dell'eseguibile, calcolato a partire dal campo _base_vaddr_ del segmento; si possono presentare tre casi distinti:
-- **prima pagina**: la pagina richiesta è la prima dell'eseguibile, il cui offset all'interno della pagina stessa potrebbe non essere nullo (ovvero, l'indirizzo virtuale di inizio dell'eseguibile potrebbe non essere _page aligned_) e, per semplicità, si mantiene tale offset anche a livello fisico, effettuando il caricamento della prima pagina anche se parzialmente occupata dall'eseguibile; ci sono due sottocasi possibili:
-  * l'eseguibile termina nella pagina corrente
-  * l'eseguibile occupa anche altre pagine
+- **prima pagina**: la pagina richiesta è la prima dell'eseguibile, il cui offset all'interno della pagina stessa potrebbe non essere nullo (ovvero, l'indirizzo virtuale di inizio dell'eseguibile potrebbe non essere _page aligned_) e, per semplicità, si mantiene tale offset anche a livello fisico, effettuando il caricamento della prima pagina anche se solo parzialmente occupata dall'eseguibile; ci sono due sottocasi possibili:
+  * l'eseguibile termina nella pagina corrente;
+  * l'eseguibile occupa anche altre pagine,
     
   tramite cui si determina quanti byte leggere dall'ELF file.
 - **ultima pagina**: la pagina richiesta è l'ultima dell'eseguibile, di conseguenza il caricamento avviene ad un indirizzo _page aligned_, mentre l'offset all'interno dell'ELF file viene calcolato a partire dal numero di pagine totali e dall'offset all'interno della prima pagina; ci sono due sottocasi possibili:
-  * l'eseguibile termina nella pagina corrente
-  * l'eseguibile termina in una pagina precedente, ma la pagina corrente è ancora occupata: ciò è dovuto al fatto che un file eseguibile ha una _filesize_ e una _memsize_ che potrebbero differire, con la prima minore o uguale alla seconda; in tal caso, l'area di memoria occupata (ma non valorizzata) deve essere azzerata
+  * l'eseguibile termina nella pagina corrente;
+  * l'eseguibile termina in una pagina precedente, ma la pagina corrente è ancora occupata: ciò è dovuto al fatto che un file eseguibile ha una _filesize_ e una _memsize_ che potrebbero differire, con la prima minore o uguale alla seconda; in tal caso, l'area di memoria occupata (ma non valorizzata) deve essere azzerata,
   
   e, in particolare, nel secondo caso non si leggono byte dall'ELF file.
 - **pagina intermedia**: il caricamento è analogo al caso precedente, a livello di offset nell'ELF file e di indirizzo fisico, ma si delineano tre sottocasi possibili, per quanto riguarda il numero di byte da leggere:
-  * l'eseguibile termina in una pagina precedente
-  * l'eseguibile termina nella pagina corrente
-  * l'eseguibile occupa anche pagine successive
+  * l'eseguibile termina in una pagina precedente;
+  * l'eseguibile termina nella pagina corrente;
+  * l'eseguibile occupa anche pagine successive,
   
   i quali sono gestiti analogamente ai due casi precedenti.
 
 Dopo aver definito i tre parametri del caricamento, ovvero:
 - _load_paddr_: indirizzo fisico in memoria a cui caricare la pagina;
 - _load_len_bytes_: numero di byte da leggere;
-- _elf_offset_: offset della pagina all'interno del file eseguibile
+- _elf_offset_: offset della pagina all'interno del file eseguibile,
 
 si azzera la regione di memoria deputata ad ospitare la pagina, per poi effettuare la lettura, seguendo il pattern dato dalle operazioni:
-- _uio_kinit_ per effettuare il setup delle strutture dati _uio_ e _iovec_
-- _VOP_READ_ per effettuare l'operazione di lettura vera e propria
+- _uio_kinit_ per effettuare il setup delle strutture dati _uio_ e _iovec_;
+- _VOP_READ_ per effettuare l'operazione di lettura vera e propria.
 
 Vengono inoltre effettuati:
 - controlli sul risultato dell'operazione di lettura, per ritornare al chiamante eventuali errori;
@@ -310,7 +308,7 @@ nell'ordine:
 - _vmstats_active_: flag per indicare se il modulo è attivo (ovvero i contatori sono stati inizializzati opportunamente);
 - _vmstats_lock_: spinlock per l'accesso in mutua esclusione, necessario in quanto tale modulo (con le sue strutture dati) è condiviso a tutti i processi e richiede che gli incrementi siano indipendenti;
 - _vmstats_counts_: vettore di contatori, uno per ogni statistica;
-- _vmstats_names_: vettore di stringhe, contenenti i nomi delle statistiche da collezionare, utile in fase di stampa
+- _vmstats_names_: vettore di stringhe, contenenti i nomi delle statistiche da collezionare, utile in fase di stampa.
 
 Nell'header file (_vmstats.h_) sono invece definiti:
 ```C
