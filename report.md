@@ -2,17 +2,19 @@
 ## Introduzione
 Il progetto svolto riguarda la realizzazione di un gestore della memoria virtuale, che sfrutti il demand paging e il loading dinamico; il suo nome è _pagevm_, come si nota da uno dei file presenti nel progetto.
 I file aggiunti alla configurazione DUMBVM seguono le indicazioni fornite nella traccia del progetto, a cui si aggiunge il file pagevm.c (e relativo header file), contenente le funzioni di base per la gestione della memoria (dettagliate in seguito).
+Il progetto è stato svolto nella variante denominata *C1.1*, con page table indipendenti per ogni processo (ulteriori dettagli sono forniti nelle sezioni successive).
 
 ## Composizione e suddivisione carichi di lavoro
-Il carico di lavoro è stato suddiviso in maniera abbastanza netta tra i componenti del gruppo, sfruttando Git:
+Il carico di lavoro è stato suddiviso in maniera abbastanza netta tra i componenti del gruppo, utilizzando una repository condivisa su Github:
 - Filippo Forte: address space e gestore della memoria, modifica a file già esistenti nella configurazione DUMBVM;
 - Michele Cazzola: segmenti, page table, statistiche e astrazione per il TLB, con wrapper per funzioni già esistenti;
 - Leone Fabio: coremap e gestione dello swapfile.
 
+Ogni componente ha gestito in modo autonomo l'implementazione dei moduli, dopo aver concordato inizialmente l'interfaccia definita negli header file e le dipendenze tra essi.
 La comunicazione è avvenuta principalmente con videochiamate a cadenza settimanale, di durata pari a 2-3 ore ciascuna, durante le quali si è discusso il lavoro fatto ed è stato pianificato quello da svolgere.
 
 ## Architettura del progetto
-Il progetto è stato realizzato utilizzando una _layer architecture_, con rare eccezioni, per cui ogni modulo fornisce astrazioni di un livello specifico, con dipendenze (quasi) unidirezionali. La descrizione dei moduli segue il loro livello di astrazione:
+Il progetto è stato realizzato utilizzando una sorta di _layer architecture_, con rare eccezioni, per cui ogni modulo fornisce astrazioni di un livello specifico, con dipendenze (quasi) unidirezionali. La descrizione dei moduli segue il loro livello di astrazione:
 - ad alto livello, si interfacciano con moduli già esistenti, tra cui _runprogram.c_, _loadelf.c_, _main.c_, _trap.c_;
 - ai livelli inferiori, forniscono servizi intermedi: segmento e page table sono dipendenze dell'address space (uno direttamente, l'altro indirettamente), coremap è dipendenza di diversi moduli (tra cui page table e quelli di livello superiore), analogamente a swapfile;
 - altri sono moduli ausiliari: l'astrazione per il TLB è utilizzata in diversi moduli per accedere alle sue funzionalità, le statistiche sono calcolate solo invocando funzioni di interfaccia. 
