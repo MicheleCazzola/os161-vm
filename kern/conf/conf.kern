@@ -448,6 +448,11 @@ optfile net	test/nettest.c
 #                                      #
 ########################################
 
+defoption   synch
+defoption waitpid
+defoption fork
+defoption syscalls
+
 defoption   paging
 optfile     paging      vm/coremap.c
 optfile     paging      vm/pagevm.c
