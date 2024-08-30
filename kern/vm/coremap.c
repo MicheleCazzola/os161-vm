@@ -48,55 +48,6 @@ static bool is_coremap_active() {
     return active;
 }
 
-/*
- * Initializes the coremap structure and sets up memory management.
- * Allocates memory for coremap entries and initializes each entry.
- * It's called at the bootstrap (by pagevm.c)
- */
-void coremap_init(void) {
-    int i;
-
-    /* Calculate the total number of RAM frames based on system RAM size */
-    total_ram_frames = ((int)ram_getsize()) / PAGE_SIZE;
-
-    /* Allocate memory for coremap entries */
-    coremap = kmalloc(sizeof(struct coremap_entry) * total_ram_frames);
-    if (coremap == NULL) {
-        panic("Failed to allocate memory for coremap");
-    }
-
-    /* Initialize each coremap entry */
-    for (i = 0; i < total_ram_frames; i++) {
-        coremap[i].entry_type = COREMAP_UNTRACKED; /* Entry type as untracked initially */
-        coremap[i].virtual_address = 0;
-        coremap[i].address_space = NULL;
-        coremap[i].allocation_size = 0;
-        coremap[i].next_allocated = invalid_reference;
-        coremap[i].previous_allocated = invalid_reference;
-    }
-
-    /* Initialize linked list variables */
-    invalid_reference = total_ram_frames;
-    last_allocated_page = invalid_reference;
-    current_victim_page = invalid_reference;
-
-    /* Set coremap as initialized */
-    spinlock_acquire(&coremap_lock);
-    is_coremap_initialized = true;
-    spinlock_release(&coremap_lock);
-}
-
-/*
- * Shuts down coremap and frees allocated resources.
- */
-void coremap_shutdown(void) {
-    spinlock_acquire(&coremap_lock);
-    is_coremap_initialized = 0;
-    spinlock_release(&coremap_lock);
-
-    /* Free the handler (i.e. the array coremap)*/
-    kfree(coremap);
-}
 
 /*
  * Finds and allocates a contiguous block of freed pages of size npages.
@@ -208,33 +159,7 @@ static int free_pages(paddr_t address, unsigned long npages) {
     return 1;
 }
 
-/*
- * Allocates kernel-space pages.
- * Calls allocate_kernel_pages() to allocate pages and then converts physical address to virtual address.
- */
-vaddr_t alloc_kpages(unsigned npages) {
-    paddr_t physical_address;
 
-    pagevm_can_sleep(); //assert we are in a context where sleeping is safe
-    physical_address = allocate_kernel_pages(npages);
-    if (physical_address == 0) {
-        return 0;
-    }
-    return PADDR_TO_KVADDR(physical_address); /* Convert physical address to kernel virtual address */
-}
-
-/*
- * Frees a range of memory pages allocated to the kernel.
- * Calls free_pages() to free the pages and update coremap.
- */
-void free_kpages(vaddr_t addr) {
-    if (is_coremap_active()) {
-        paddr_t physical_address = addr - MIPS_KSEG0; // MIPS_KSEG0 is the base address of the direct-mapped segment in the architecture.
-        long first_page = physical_address / PAGE_SIZE;
-        KASSERT(total_ram_frames > first_page);
-        free_pages(physical_address, coremap[first_page].allocation_size);
-    }
-}
 /*
  * Allocates a single user page.
  * Tries to find a free page managed by coremap first; if not found, it calls ram_stealmem().
@@ -275,36 +200,33 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
 
             // Update coremap to reflect the newly allocated page
             spinlock_acquire(&coremap_lock);  // Acquire lock to ensure exclusive access to coremap
-            //if (coremap[page_index].entry_type == COREMAP_FREED) {
-                // The page was previously freed; we can now allocate it ???
-                coremap[page_index].entry_type = COREMAP_BUSY_USER;  
-                coremap[page_index].allocation_size = 1;  
-                coremap[page_index].address_space = current_as;  
-                coremap[page_index].virtual_address = associated_vaddr;  
+            coremap[page_index].entry_type = COREMAP_BUSY_USER;  
+            coremap[page_index].allocation_size = 1;  
+            coremap[page_index].address_space = current_as;  
+            coremap[page_index].virtual_address = associated_vaddr;  
 
-                // Update the linked list of allocated pages
-                if (last_allocated_temp != invalid_reference) {
-                    // There were previously allocated pages
-                    coremap[last_allocated_temp].next_allocated = page_index;  // Link the last allocated page to the new page
-                    coremap[page_index].previous_allocated = last_allocated_temp;  // Set the new page's previous link
-                    coremap[page_index].next_allocated = invalid_reference;  // The new page has no further links
-                } else {
-                    // This is the first allocated page
-                    coremap[page_index].previous_allocated = invalid_reference;  // No previous page
-                    coremap[page_index].next_allocated = invalid_reference;  // No next page
-                }
+            // Update the linked list of allocated pages
+            if (last_allocated_temp != invalid_reference) {
+                // There were previously allocated pages
+                coremap[last_allocated_temp].next_allocated = page_index;  // Link the last allocated page to the new page
+                coremap[page_index].previous_allocated = last_allocated_temp;  // Set the new page's previous link
+                coremap[page_index].next_allocated = invalid_reference;  // The new page has no further links
+            } else {
+                // This is the first allocated page
+                coremap[page_index].previous_allocated = invalid_reference;  // No previous page
+                coremap[page_index].next_allocated = invalid_reference;  // No next page
+            }
 
-                spinlock_release(&coremap_lock);  
+            spinlock_release(&coremap_lock);  
 
-                // Update page replacement tracking
-                spinlock_acquire(&page_replacement_lock);  
-                if (current_victim_temp == invalid_reference) {
-                    // This is the only page in the coremap, so it becomes the current victim page
-                    current_victim_page = page_index;
-                }
-                last_allocated_page = page_index;  // Update the index of the last allocated page
-                spinlock_release(&page_replacement_lock);  
-            //}
+            // Update page replacement tracking
+            spinlock_acquire(&page_replacement_lock);  
+            if (current_victim_temp == invalid_reference) {
+                // This is the only page in the coremap, so it becomes the current victim page
+                current_victim_page = page_index;
+            }
+            last_allocated_page = page_index;  // Update the index of the last allocated page
+            spinlock_release(&page_replacement_lock);  
         } 
         else {
             // SWAP OUT
@@ -318,14 +240,10 @@ static paddr_t allocate_user_page(vaddr_t associated_vaddr) {
             // Update coremap to reflect the swapped-out page
             spinlock_acquire(&coremap_lock);
 
-            // Find the segment in the address space that corresponds to the page being considered for swapping out.
-            // `coremap[current_victim_temp].address_space` provides the address space of the page being considered.
-            // `coremap[current_victim_temp].virtual_address` gives the virtual address of that page.
-            // The `as_find_segment` function  searches through the address space to find the corresponding segment
-            // that contains this virtual address.
-            //victim_ps = as_find_segment(coremap[current_victim_temp].address_space, coremap[current_victim_temp].virtual_address);
-
-            /**
+            /** Find the segment in the address space that corresponds to the page being considered for swapping out.
+            * `coremap[current_victim_temp].address_space` provides the address space of the page being considered.
+            * `coremap[current_victim_temp].virtual_address` gives the virtual address of that page.
+            
              * Using coarse version because base virtual address of a segment could be page-unaligned
              * Thus, since virtual address field is page-aligned, it could contain a virtual address lower the base one, leading to errors
              * This version casts all virtual addresses to page-aligned ones, then it works than fine grained version
@@ -433,11 +351,102 @@ static void free_page_user(paddr_t paddr) {
     }
 }
 
+/*
+ * Initializes the coremap structure and sets up memory management.
+ * Allocates memory for coremap entries and initializes each entry.
+ * It's called at the bootstrap (by pagevm.c)
+ */
+void coremap_init(void) {
+    int i;
+
+    /* Calculate the total number of RAM frames based on system RAM size */
+    total_ram_frames = ((int)ram_getsize()) / PAGE_SIZE;
+
+    /* Allocate memory for coremap entries */
+    coremap = kmalloc(sizeof(struct coremap_entry) * total_ram_frames);
+    if (coremap == NULL) {
+        panic("Failed to allocate memory for coremap");
+    }
+
+    /* Initialize each coremap entry */
+    for (i = 0; i < total_ram_frames; i++) {
+        coremap[i].entry_type = COREMAP_UNTRACKED; /* Entry type as untracked initially */
+        coremap[i].virtual_address = 0;
+        coremap[i].address_space = NULL;
+        coremap[i].allocation_size = 0;
+        coremap[i].next_allocated = invalid_reference;
+        coremap[i].previous_allocated = invalid_reference;
+    }
+
+    /* Initialize linked list variables */
+    invalid_reference = total_ram_frames;
+    last_allocated_page = invalid_reference;
+    current_victim_page = invalid_reference;
+
+    /* Set coremap as initialized */
+    spinlock_acquire(&coremap_lock);
+    is_coremap_initialized = true;
+    spinlock_release(&coremap_lock);
+}
+
+/*
+ * Shuts down coremap and frees allocated resources.
+ */
+void coremap_shutdown(void) {
+    spinlock_acquire(&coremap_lock);
+    is_coremap_initialized = 0;
+    spinlock_release(&coremap_lock);
+
+    /* Free the handler (i.e. the array coremap)*/
+    kfree(coremap);
+}
+
+
+/*
+ * Allocates kernel-space pages.
+ * Calls allocate_kernel_pages() to allocate pages and then converts physical address to virtual address.
+ */
+vaddr_t alloc_kpages(unsigned npages) {
+    paddr_t physical_address;
+
+    /*
+       Assert we are in a context where sleeping is safe, i.e.:
+       It asserts that the current CPU is not holding any spinlocks, ensuring that it's safe to enter a potentially blocking state.
+       It asserts that the current thread is not running within an interrupt handler, ensuring that the context is appropriate for sleeping.
+    */
+    pagevm_can_sleep(); 
+
+    physical_address = allocate_kernel_pages(npages);
+    if (physical_address == 0) {
+        return 0;
+    }
+    return PADDR_TO_KVADDR(physical_address); /* Convert physical address to kernel virtual address */
+}
+
+/*
+ * Frees a range of memory pages allocated to the kernel.
+ * Calls free_pages() to free the pages and update coremap.
+ */
+void free_kpages(vaddr_t addr) {
+    if (is_coremap_active()) {
+        paddr_t physical_address = addr - MIPS_KSEG0; // MIPS_KSEG0 is the base address of the direct-mapped segment in the architecture.
+        long first_page = physical_address / PAGE_SIZE;
+        KASSERT(total_ram_frames > first_page);
+        free_pages(physical_address, coremap[first_page].allocation_size);
+    }
+}
+
 /* Wrapper for user page allocation */
 paddr_t alloc_user_page(vaddr_t vaddr) {
     paddr_t paddr;
 
-    pagevm_can_sleep(); //assert we are in a context where sleeping is safe
+    /*
+       Assert we are in a context where sleeping is safe, i.e.:
+       It asserts that the current CPU is not holding any spinlocks, ensuring that it's safe to enter a potentially blocking state.
+       It asserts that the current thread is not running within an interrupt handler, ensuring that the context is appropriate for sleeping.
+    */
+    pagevm_can_sleep(); 
+
     paddr = allocate_user_page(vaddr);
     return paddr;
 }

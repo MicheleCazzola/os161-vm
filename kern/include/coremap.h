@@ -38,12 +38,30 @@ struct coremap_entry {
     addrspace_t *address_space;                /* Address space to which the page is assigned */
 };
 
-/* Function prototypes for coremap management */
-void coremap_init(void);            /* Initialize coremap and its structures */
-void coremap_shutdown(void);        /* Shutdown coremap and free associated resources */
-vaddr_t alloc_kpages(unsigned npages); /* Allocate kernel pages and return their virtual address */
-void free_kpages(vaddr_t addr);     /* Free kernel pages starting from the given virtual address */
-paddr_t alloc_user_page(vaddr_t vaddr); /* Allocate a user page and return its physical address */
-void free_user_page(paddr_t paddr); /* Free a user page given its physical address */
+
+
+/*
+ * Coremap Functions Description
+ * 
+ * coremap_init:  Initialize coremap and its structures 
+ * 
+ * coremap_shutdown:  Shutdown coremap and free associated resources 
+ * 
+ * vaddr_t alloc_kpages:  Allocate kernel pages and return their virtual address 
+ * 
+ * void free_kpages:  Free kernel pages starting from the given virtual address 
+ * 
+ * paddr_t alloc_user_page:  Allocate a user page and return its physical address 
+ *
+ * void free_user_page:  Free a user page given its physical address 
+ * 
+ */
+
+void coremap_init(void);           
+void coremap_shutdown(void);        
+vaddr_t alloc_kpages(unsigned npages); 
+void free_kpages(vaddr_t addr);     
+paddr_t alloc_user_page(vaddr_t vaddr); 
+void free_user_page(paddr_t paddr); 
 
 #endif /* _COREMAP_H_ */
