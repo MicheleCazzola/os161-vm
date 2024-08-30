@@ -64,16 +64,12 @@ void vm_shutdown(void)
     vmstats_show();
 }
 
-
-/* Gestisce le TLB miss. Chiamata quando una pagina è nella tabella delle pagine 
- * ma non nella TLB o deve essere caricata dal disco.
- * 
+/* 
  * Handles TLB misses. Called when a page is in the page table 
  * but not in the TLB or needs to be loaded from disk.
  */
 int vm_fault(int faulttype, vaddr_t faultaddress)
 {
-
     addrspace_t *as;
     ps_t *process_segment;
     paddr_t physical_address;
@@ -82,95 +78,106 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
     int result, spl;
     uint64_t peek;
 
-    //check that the fault type is correct
+    // Ensure the fault type is valid: it must be read, write, or readonly
     if((faulttype != VM_FAULT_READONLY) && (faulttype != VM_FAULT_READ) && (faulttype != VM_FAULT_WRITE)){
-        return EINVAL;
+        return EINVAL;  // Invalid argument error
     }
 
-    /* Riscrivere questo commento
-    Il faulttype è VM_FAULT READONLY quando avviene TLB hit su richiesta di write, ma il dirty bit è 0
-    Se il dirty è 0, in os161 vuol dire che la pagina è writable -> Se richiedo una write ma dirty è 0, 
-    in caso di hit è un problema, perché quella pagina non è read-write
-    */
-    
+    /* 
+     * Handle read-only faults.
+     * This happens when a write is attempted on a page marked as read-only.
+     * In OS161, if the dirty bit is 0, the page is writable. If a write request
+     * is made and the dirty bit is 0, but the page is not actually writable, 
+     * a read-only fault occurs. This is an access violation.
+     */
     if(faulttype == VM_FAULT_READONLY){
-        return EACCES;
+        return EACCES;  // Access violation error
     }
 
-    //check that the current process exists
+    // Ensure the current process exists
     if(curproc == NULL){
-        return EFAULT;
+        return EFAULT;  // Fault error
     }
 
-    //get the address space of the current process
+    // Get the address space of the current process
     as = proc_getas();
     if(as == NULL){
-        return EFAULT;
+        return EFAULT;  // Fault error
     }
 
-    //get the segment in the address space that causes the fault
+    // Find the segment within the address space that contains the fault address
     process_segment = as_find_segment(as, faultaddress);
     if(process_segment == NULL){
-        return EFAULT;
+        return EFAULT;  // Fault error, no segment found for the address
     }
 
-    //get the physical address of the fault address
+    // Get the physical address associated with the fault address in the segment
     physical_address = seg_get_paddr(process_segment, faultaddress);
 
-
     unpopulated = 0;
+
+    // Handle the case where the page table entry is empty (page not yet allocated)
     if(physical_address == PT_EMPTY_ENTRY){
 
+        // Allocate a new physical page for the fault address
         physical_address = alloc_user_page(page_aligned_fault_address);
+        // Add the newly allocated page to the page table
         seg_add_pt_entry(process_segment, faultaddress, physical_address);
 
+        // If the segment is for the stack, zero out the page
         if(process_segment->permissions == PAGE_STACK){
             bzero((void *)PADDR_TO_KVADDR(physical_address), PAGE_SIZE);
-            vmstats_increment(VMSTAT_PAGE_FAULT_ZERO);
+            vmstats_increment(VMSTAT_PAGE_FAULT_ZERO);  // Increment zero-filled page fault counter
         }
 
-        unpopulated = 1;
+        unpopulated = 1;  // Mark as a newly populated page
     }
 
+    // Handle the case where the page is swapped out (page needs to be loaded from disk)
     else if(physical_address == PT_SWAPPED_ENTRY){
 
+        // Allocate a new physical page
         physical_address = alloc_user_page(page_aligned_fault_address);
+        // Load the page from swap into the new physical page
         seg_swap_in(process_segment, faultaddress, physical_address);
     }
     else{
-        vmstats_increment(VMSTAT_TLB_RELOAD);
+        // If the page was already allocated, just reload it into the TLB
+        vmstats_increment(VMSTAT_TLB_RELOAD);  // Increment TLB reload counter
     }
 
-    /* make sure it's page-aligned */
-    KASSERT( (physical_address & PAGE_FRAME) == physical_address );
+    // Ensure the physical address is page-aligned
+    KASSERT((physical_address & PAGE_FRAME) == physical_address);
 
+    // If it's not a stack page and the page was just populated, load the page from file
     if (process_segment->permissions != PAGE_STACK && unpopulated) {
-        /* Load page from file*/
         result = seg_load_page(process_segment, faultaddress, physical_address);
         if (result)
-            return EFAULT;
+            return EFAULT;  // Fault error if page loading fails
     }
 
+    // Disable interrupts to safely update the TLB
     spl = splhigh();
 
-    //tlb_index = vm_tlb_get_victim_round_robin();
-
+    // Get the TLB entry that will be replaced (victim selection)
     peek = vm_tlb_peek_victim();
 
-    //kprintf("Peek value: %llx\n", peek);
-
+    // Check if the victim entry is valid
     if(peek & (TLBLO_VALID*1ULL)){
-        vmstats_increment(VMSTAT_TLB_MISS_REPLACE);
+        vmstats_increment(VMSTAT_TLB_MISS_REPLACE);  // Increment TLB miss replace counter
     }else{
-        vmstats_increment(VMSTAT_TLB_MISS_FREE);
-
+        vmstats_increment(VMSTAT_TLB_MISS_FREE);  // Increment TLB miss free counter
     }
 
+    // Increment TLB miss counter
     vmstats_increment(VMSTAT_TLB_MISS);
 
-    vm_tlb_write(faultaddress, physical_address, process_segment->permissions == PAGE_RW || process_segment->permissions == PAGE_STACK);
+    // Write the new mapping into the TLB
+    vm_tlb_write(faultaddress, physical_address, 
+                 process_segment->permissions == PAGE_RW || process_segment->permissions == PAGE_STACK);
 
+    // Re-enable interrupts
     splx(spl);
     
-    return 0; 
+    return 0;  // Return success
 }

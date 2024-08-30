@@ -343,6 +343,7 @@ ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
     KASSERT(as->seg_data->page_table != NULL);
     KASSERT(as->seg_stack->page_table != NULL);
 
+
     // Calculate the base and top addresses for the code segment
     base_code = as->seg_code->base_vaddr;
     top_code = base_code + as->seg_code->seg_size_words;
@@ -351,13 +352,10 @@ ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
     base_data = as->seg_data->base_vaddr;
     top_data = base_data + as->seg_data->seg_size_words;
 
-    /*
-    kprintf("base_vaddr: %d, base_data: %d, memsize: %d, top_data: %d, raw_add: %d\n",
-            as->seg_data->base_vaddr, base_data, as->seg_data->seg_size_words, top_data, base_data + as->seg_data->seg_size_words);
-    */
     // Calculate the base and top addresses for the stack segment
     base_stack = as->seg_stack->base_vaddr;
     top_stack = USERSTACK;
+
 
     // Determine which segment the given virtual address (vaddr) belongs to
     if (vaddr >= base_code && vaddr < top_code) {
@@ -366,11 +364,12 @@ ps_t *as_find_segment(addrspace_t *as, vaddr_t vaddr)
     else if (vaddr >= base_data && vaddr < top_data) {
         ps = as->seg_data;  // The address belongs to the data segment
     }
-    else if (vaddr >= base_stack && vaddr < top_stack) {    // Maybe second comparison is wrong
+    else if (vaddr >= base_stack && vaddr < top_stack) {
         ps = as->seg_stack; // The address belongs to the stack segment
     } else {
         return NULL;  // The address does not belong to any known segment
     }
+
 
     return ps;  // Return the segment that the address belongs to
 }
@@ -393,6 +392,7 @@ ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)
     KASSERT(as->seg_data->page_table != NULL);
     KASSERT(as->seg_stack->page_table != NULL);
 
+
     // Calculate the base and top addresses for the code segment
     base_code = as->seg_code->base_vaddr & PAGE_FRAME;
     top_code = base_code + as->seg_code->num_pages * PAGE_SIZE;
@@ -401,13 +401,10 @@ ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)
     base_data = as->seg_data->base_vaddr & PAGE_FRAME;
     top_data = base_data + as->seg_data->num_pages * PAGE_SIZE;
 
-    /*
-    kprintf("base_vaddr: %d, base_data: %d, memsize: %d, top_data: %d, raw_add: %d\n",
-            as->seg_data->base_vaddr, base_data, as->seg_data->seg_size_words, top_data, base_data + as->seg_data->seg_size_words);
-    */
     // Calculate the base and top addresses for the stack segment
     base_stack = USERSTACK - PAGEVM_STACKPAGES * PAGE_SIZE;
     top_stack = USERSTACK;
+
 
     // Determine which segment the given virtual address (vaddr) belongs to
     if (vaddr >= base_code && vaddr < top_code) {
@@ -416,11 +413,12 @@ ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)
     else if (vaddr >= base_data && vaddr < top_data) {
         ps = as->seg_data;  // The address belongs to the data segment
     }
-    else if (vaddr >= base_stack && vaddr < top_stack) {    // Maybe second comparison is wrong
+    else if (vaddr >= base_stack && vaddr < top_stack) {
         ps = as->seg_stack; // The address belongs to the stack segment
     } else {
         return NULL;  // The address does not belong to any known segment
     }
+
 
     return ps;  // Return the segment that the address belongs to
 }
