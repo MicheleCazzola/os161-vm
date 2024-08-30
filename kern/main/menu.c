@@ -143,7 +143,6 @@ common_prog(int nargs, char **args)
 	 */
 
 #if OPT_WAITPID
-	kprintf("PPROCESS RUNNING\n");
 	// Wait for current process to terminate
 	status = sys_waitpid(proc->p_pid, (userptr_t)proc->p_status, 0);
 	kprintf("Process ended\n");
