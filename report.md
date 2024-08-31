@@ -68,7 +68,7 @@ Le funzioni _as_create_ e _as_destroy_ hanno il compito di allocare e liberare l
 
 Si utilizzano le funzioni:
 - _as_copy_: si occupa di creare un nuovo address space e copiarci quello ricevuto come parametro. Si basa sulla _seg_copy_
-- _as_activate_: questa funzione viene chiamata in _runprogram_ subito dopo aver creato e settato l'address space del processo. In particolare ha il compito di invalidare le entry della tlb e di inizializzare la vittima che eventualmente sarà sostituita nella tlb.
+- _as_activate_: questa funzione viene chiamata in _runprogram_ subito dopo aver creato e settato l'address space del processo. In particolare ha il compito di invalidare le entry del TLB e di inizializzare la vittima che eventualmente sarà sostituita nel TLB.
 
 ##### Define
 
@@ -76,7 +76,9 @@ Le funzioni _as_define_region_ e _as_define_stack_ vengono utilizzate per defini
 
 ##### Find
 
-Sono presenti 2 funzioni che dato un address space e un indirizzo virtuale permettono di risalire al relativo segmento. Le due funzioni si differenziano nella granularità della ricerca, infatti la _as_find_segment_coarse_ controlla che l'indirizzo passato sia nei limiti dei vari segmenti ma allineati alla pagina. Entrambe le funzioni hanno il compito di calcolare inizio e fine dei 3 segmenti (code, data e stack) e verificare a quale di questi l'indirizzo passato appartiene.
+Sono presenti 2 funzioni che dato un address space e un indirizzo virtuale permettono di risalire al relativo segmento. Le due funzioni si differenziano nella granularità della ricerca, esse sono _as_find_segment_ e _as_find_segment_coarse_. Entrambe le funzioni hanno il compito di calcolare inizio e fine dei 3 segmenti (code, data e stack) e verificare a quale di questi l'indirizzo passato appartiene.
+
+Rispetto alla funzione as_find_segment, viene utilizzata la versione "coarse" (a granularità grossolana), che opera a livello di pagina, per gestire il problema dell'indirizzo base virtuale di un segmento non allineato con le pagine. Tuttavia, questa soluzione presenta dei rischi in termini di sicurezza: l'operazione di allineamento con le pagine potrebbe erroneamente considerare alcuni indirizzi virtuali, che in realtà non appartengono a nessun segmento specifico, come appartenenti ad un segmento.
 
 ### Gestore della memoria (pagevm)
 
@@ -95,9 +97,9 @@ void pagevm_can_sleep(void);
 
 #### Inizializzazione e Terminazione
 
-Le funzioni _vm_bootstrap_ e _vm_shutdown_ hanno il compito, rispettivamente, di inizializzare e distruggere tutte le strutture accessorie necessarie per la gestione della memoria virtuale. Tra queste strutture figurano la coremap, il sistema di swap, la TLB e il sistema di raccolta delle statistiche. Queste funzioni fungono essenzialmente da contenitori che richiamano le routine di inizializzazione e terminazione di altri moduli.
+Le funzioni _vm_bootstrap_ e _vm_shutdown_ hanno il compito, rispettivamente, di inizializzare e distruggere tutte le strutture accessorie necessarie per la gestione della memoria virtuale. Tra queste strutture figurano la coremap, il sistema di swap, il TLB e il sistema di raccolta delle statistiche. Queste funzioni fungono essenzialmente da contenitori che richiamano le routine di inizializzazione e terminazione di altri moduli.
 
-- **vm_bootstrap**: Questa funzione viene chiamata durante l'avvio del sistema per configurare l'intero sistema di memoria virtuale. Tra le operazioni principali, resetta il puntatore della vittima nella TLB, inizializza la coremap, imposta il sistema di swap e prepara il modulo di gestione delle statistiche.
+- **vm_bootstrap**: Questa funzione viene chiamata durante l'avvio del sistema per configurare l'intero sistema di memoria virtuale. Tra le operazioni principali, resetta il puntatore della vittima nel TLB, inizializza la coremap, imposta il sistema di swap e prepara il modulo di gestione delle statistiche.
   
 - **vm_shutdown**: Questa funzione viene invocata durante lo spegnimento del sistema per rilasciare in modo sicuro le risorse utilizzate e stampare le statistiche sull'uso della memoria. Gestisce la chiusura del sistema di swap, della coremap e produce l'output delle statistiche raccolte.
 
@@ -105,7 +107,7 @@ Le funzioni _vm_bootstrap_ e _vm_shutdown_ hanno il compito, rispettivamente, di
 
 La funzione centrale di questo modulo è _vm_fault_, che si occupa della gestione dei TLB miss.
 
-- **vm_fault**: Questa funzione ha il compito di gestire la creazione di una nuova corrispondenza tra indirizzo fisico e indirizzo virtuale nella TLB ogni volta che si verifica un TLB miss. Il funzionamento della funzione si articola nei seguenti passaggi:
+- **vm_fault**: Questa funzione ha il compito di gestire la creazione di una nuova corrispondenza tra indirizzo fisico e indirizzo virtuale nel TLB ogni volta che si verifica un TLB miss. Il funzionamento della funzione si articola nei seguenti passaggi:
 
   1. **Verifica del Fault**: La funzione inizia verificando il tipo di fault (ad esempio, read-only, read, write) e assicurandosi che il processo corrente e il suo spazio di indirizzamento siano validi.
   
@@ -113,7 +115,7 @@ La funzione centrale di questo modulo è _vm_fault_, che si occupa della gestion
   
   3. **Gestione della Pagina**: Se il fault è dovuto a una pagina non ancora assegnata o a una pagina precedentemente swap-out, viene allocata una nuova pagina. In base al tipo di fault, vengono quindi chiamate le funzioni di basso livello _seg_add_pt_entry_ (per aggiungere la nuova pagina alla tabella delle pagine) o _seg_swap_in_ (per caricare la pagina dallo swap).
   
-  4. **Aggiornamento della TLB**: Infine, utilizzando un algoritmo round-robin, viene scelta la vittima da sostituire nella TLB e la TLB viene aggiornata con la nuova corrispondenza indirizzo fisico-virtuale.
+  4. **Aggiornamento del TLB**: Infine, utilizzando un algoritmo round-robin, viene scelta la vittima da sostituire nel TLB e il TLB viene aggiornata con la nuova corrispondenza indirizzo fisico-virtuale.
 
 ### Segmento
 Un processo è costituito da diversi segmenti, che sono aree di memoria aventi una semantica comune; nel nostro caso, ogni processo ha tre segmenti:
@@ -445,8 +447,7 @@ void free_user_page(paddr_t paddr);
 ##### Allocazione e Deallocazione pagine - Processi utente
 
 - _alloc_user_page(vaddr_t vaddr)_: funzione che gestisce l'allocazione delle pagine per i processi utente. Cerca prima di utilizzare pagine libere e, se necessario, sostituisce una pagina esistente usando una strategia di sostituzione FIFO. Se una pagina viene sostituita, la funzione interagisce con lo swapfile per gestire il trasferimento della pagina vittima al disco. Inoltre è fondamentale, dal punto di vista implementativo, identificare il segmento che contiene la pagina selezionata come vittima. Questo passaggio è essenziale per poter marcare come "swapped" l'entry della corretta page table corrispondente all'indirizzo virtuale e per salvare l'offset dello swapfile dove la pagina è stata memorizzata. La ricerca del segmento viene effettuata tramite la funzione 
-`ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)` definita in addspace.h. Rispetto alla funzione as_find_segment, viene utilizzata la versione "coarse" (a granularità grossolana), che opera a livello di pagina, per gestire il problema dell'indirizzo base virtuale di un segmento non allineato con le pagine. Tuttavia, questa soluzione presenta dei rischi in termini di sicurezza: l'operazione di allineamento con le pagine potrebbe erroneamente considerare alcuni indirizzi virtuali, che in realtà non appartengono a nessun segmento specifico, come appartenenti ad un segmento.
-
+`ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)` definita in addspace.h.
 
 - _free_user_page(paddr_t paddr)_: funzione che libera le pagine allocate ai processi utente, rimuovendo la pagina dalla coda di allocazione e segnandola come COREMAP_FREED nella cremap.
 
@@ -489,6 +490,15 @@ All'interno della funzione _kill_curthread_, in caso di:
 viene eseguita una stampa di errore, seguita da una chiamata alla system call _sys__exit_, per effettuare la terminazione _graceful_ del processo, liberando le risorse allocate; ciò avviene di solito in seguito alla restituzione di un valore non nullo da parte della funzione _vm_fault_.
 
 In questo modo, è possibile evitare un _panic_ del sistema operativo, qualora si verifichi un errore di questo tipo, permettendo sia l'esecuzione di ulteriori test (o la ripetizione dello stesso); inoltre, ciò permette di terminare correttamente il sistema operativo (con il comando _q_), tracciando le statistiche per il test _faulter_.
+
+#### runprogram.c
+In questa implementazione, è stata aggiunta una modifica con un flag condizionale (utilizzando #if !OPT_PAGING) per determinare se il file rimane aperto o viene chiuso subito dopo il caricamento dell'eseguibile. Se l'opzione di paging (OPT_PAGING) è disabilitata, il file viene chiuso immediatamente. Altrimenti, il file rimane aperto per essere chiuso successivamente durante la distruzione dello spazio di indirizzamento chiamando la _as_destroy_. Questa modifica è stata introdotta per supportare la paginazione a richiesta, che può necessitare dell'accesso continuo al file eseguibile durante l'esecuzione del programma.
+
+#### loadelf.c
+In questa implementazione, il codice è stato modificato per supportare la paginazione a richiesta, che consente di caricare segmenti dell'eseguibile in memoria solo quando necessario.
+È stata introdotta l'opzione condizionale OPT_PAGING, che controlla se il caricamento completo del programma viene eseguito immediatamente o se viene abilitata la paginazione a richiesta.
+Quando OPT_PAGING è abilitato, _as_define_region_ viene chiamata con parametri aggiuntivi che includono l'offset del file, la dimensione in memoria, la dimensione del file e il puntatore al file. Questo consente alla funzione di gestire le regioni di memoria in modo da supportare la paginazione a richiesta.
+La funzione _as_prepare_load_ viene chiamata per preparare il caricamento del programma nello spazio di indirizzamento. Tuttavia, se la paginazione a richiesta è attiva, il caricamento effettivo dei segmenti _load_segment_ non viene eseguito in questa fase.
 
 ## Test
 Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
