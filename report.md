@@ -1,7 +1,9 @@
 # Progetto OS161: C1 - paging
 ## Introduzione
 Il progetto svolto riguarda la realizzazione di un gestore della memoria virtuale, che sfrutti il demand paging e il loading dinamico; il suo nome è _pagevm_, come si nota da uno dei file presenti nel progetto.
+
 I file aggiunti alla configurazione DUMBVM seguono le indicazioni fornite nella traccia del progetto, a cui si aggiunge il file pagevm.c (e relativo header file), contenente le funzioni di base per la gestione della memoria (dettagliate in seguito).
+
 Il progetto è stato svolto nella variante denominata *C1.1*, con page table indipendenti per ogni processo (ulteriori dettagli sono forniti nelle sezioni successive).
 
 ## Composizione e suddivisione carichi di lavoro
@@ -10,8 +12,9 @@ Il carico di lavoro è stato suddiviso in maniera abbastanza netta tra i compone
 - Michele Cazzola: segmenti, page table, statistiche e astrazione per il TLB, con wrapper per funzioni già esistenti;
 - Leone Fabio: coremap e gestione dello swapfile.
 
-Ogni componente ha gestito in modo autonomo l'implementazione dei moduli, dopo aver concordato inizialmente l'interfaccia definita negli header file e le dipendenze tra essi.
-La comunicazione è avvenuta principalmente con videochiamate a cadenza settimanale, di durata pari a 2-3 ore ciascuna, durante le quali si è discusso il lavoro fatto ed è stato pianificato quello da svolgere.
+Ogni componente del gruppo ha gestito in modo autonomo l'implementazione dei moduli, compresa la cura della documentazione e della propria parte di report, dopo aver concordato inizialmente l'interfaccia definita negli header file e le dipendenze tra essi. 
+
+La comunicazione è avvenuta principalmente con videochiamate a cadenza settimanale, di durata pari a 2-3 ore ciascuna, durante le quali si è discusso il lavoro effettuato ed è stato pianificato quello da svolgere.
 
 ## Architettura del progetto
 Il progetto è stato realizzato utilizzando una sorta di _layer architecture_, con rare eccezioni, per cui ogni modulo fornisce astrazioni di un livello specifico, con dipendenze (quasi) unidirezionali. La descrizione dei moduli segue il loro livello di astrazione:
@@ -72,13 +75,13 @@ Si utilizzano le funzioni:
 
 ##### Define
 
-Le funzioni _as_define_region_ e _as_define_stack_ vengono utilizzate per definire segmento codice e segmento dati (per la _as_define_region_) e segmento stack (per la _as_define_stack_). Esse fungono essenzialmente da wrapper per le relative funzioni di piu basso livelo. Ciò che aggiungono è il calcolo della dimensione dei relativi segmenti, dato necessario per le funzioni definite in segment.c.
+Le funzioni _as_define_region_ e _as_define_stack_ vengono utilizzate per definire segmento codice e segmento dati (per la _as_define_region_) e segmento stack (per la _as_define_stack_). Esse fungono essenzialmente da wrapper per le relative funzioni di più basso livello. Ciò che aggiungono è il calcolo della dimensione dei relativi segmenti, dato necessario per le funzioni definite in segment.c.
 
 ##### Find
 
 Sono presenti 2 funzioni che dato un address space e un indirizzo virtuale permettono di risalire al relativo segmento. Le due funzioni si differenziano nella granularità della ricerca, esse sono _as_find_segment_ e _as_find_segment_coarse_. Entrambe le funzioni hanno il compito di calcolare inizio e fine dei 3 segmenti (code, data e stack) e verificare a quale di questi l'indirizzo passato appartiene.
 
-Rispetto alla funzione as_find_segment, viene utilizzata la versione "coarse" (a granularità grossolana), che opera a livello di pagina, per gestire il problema dell'indirizzo base virtuale di un segmento non allineato con le pagine. Tuttavia, questa soluzione presenta dei rischi in termini di sicurezza: l'operazione di allineamento con le pagine potrebbe erroneamente considerare alcuni indirizzi virtuali, che in realtà non appartengono a nessun segmento specifico, come appartenenti ad un segmento.
+Rispetto alla funzione as_find_segment, viene utilizzata la versione "coarse" (a granularità più grossolana), che opera a livello di pagina, per gestire il problema dell'indirizzo base virtuale di un segmento non allineato con le pagine. Tuttavia, questa soluzione presenta dei rischi in termini di sicurezza: l'operazione di allineamento con le pagine potrebbe erroneamente considerare alcuni indirizzi virtuali, che in realtà non appartengono a nessun segmento specifico, come appartenenti ad un segmento.
 
 ### Gestore della memoria (pagevm)
 
@@ -113,12 +116,12 @@ La funzione centrale di questo modulo è _vm_fault_, che si occupa della gestion
   
   2. **Recupero dell'Indirizzo Fisico**: Successivamente, recupera l'indirizzo fisico corrispondente all'indirizzo virtuale in cui si è verificato il fault utilizzando la funzione _seg_get_paddr_.
   
-  3. **Gestione della Pagina**: Se il fault è dovuto a una pagina non ancora assegnata o a una pagina precedentemente swap-out, viene allocata una nuova pagina. In base al tipo di fault, vengono quindi chiamate le funzioni di basso livello _seg_add_pt_entry_ (per aggiungere la nuova pagina alla tabella delle pagine) o _seg_swap_in_ (per caricare la pagina dallo swap).
+  3. **Gestione della Pagina**: Se il fault è dovuto a una pagina non ancora assegnata o a una pagina precedentemente swap-out, viene allocata una nuova pagina. In base al tipo di fault, vengono quindi chiamate le funzioni di basso livello _seg_add_pt_entry_ (per aggiungere la nuova pagina alla tabella delle pagine) o _seg_swap_in_ (per caricare la pagina dallo swapfile).
   
   4. **Aggiornamento del TLB**: Infine, utilizzando un algoritmo round-robin, viene scelta la vittima da sostituire nel TLB e il TLB viene aggiornata con la nuova corrispondenza indirizzo fisico-virtuale.
 
 ### Segmento
-Un processo è costituito da diversi segmenti, che sono aree di memoria aventi una semantica comune; nel nostro caso, ogni processo ha tre segmenti:
+Un processo ha uno spazio di indirizzamento costituito da diversi segmenti, che sono aree di memoria aventi una semantica comune; nel nostro caso, essi sono tre:
 - codice: contiene il codice dell'eseguibile, è read-only; 
 - dati: contiene le variabili globali, è read-write;
 - stack: contiene gli stack frame delle funzioni chiamate durante l'esecuzione del processo, è read-write.
@@ -157,7 +160,7 @@ typedef enum {
 - _elf_vnode_: puntatore al vnode del file eseguibile a cui il segmento appartiene;
 - _page_table_: puntatore alla page table associata al segmento
 
-Nel caso in cui la dimensione effettiva del segmento sia inferiore a quella occupata dal numero di pagine necessarie a salvarlo in memoria, il residuo viene completamente azzerato.
+con il vincolo che _seg_size_bytes_ <= _seg_size_words_; inoltre, nel caso in cui la dimensione effettiva del segmento sia inferiore alla memoria che esso occupa, il residuo viene completamente azzerato.
 
 #### Implementazione
 Le funzioni di questo modulo si occupano di svolgere operazioni a livello segmento, eventualmente agendo da semplici wrapper per funzioni di livello inferiore. Esse sono utilizzate all'interno dei moduli _addrspace_ o _pagevm_; i prototipi sono i seguenti:
@@ -188,9 +191,9 @@ Si utilizzano le funzioni:
 - _seg_define_: definisce il valore dei campi del segmento dato, utilizzando i parametri passati dal chiamante (ovvero _as_define_region_); essi non includono informazioni riguardanti la page table, che viene definita in seguito; tale funzione è utilizzata solo per le regioni di codice e dati, non per lo stack;
 - _seg_define_stack_: come la precedente, ma utilizzata solo per lo stack e invocata da _as_define_stack_; per la natura dello stack:
     * esso non esiste all'interno del file, pertanto offset e dimensione nel file sono campi azzerati;
-    * il numero di pagine è definito dalla costante _PAGEVM_STACKPAGES_ che è pari a 18;
+    * il numero di pagine è definito dalla costante _PAGEVM_STACKPAGES_, pari a 18;
     * la dimensione occupata in memoria (parole intere) è legata direttamente al numero di pagine, secondo la costante _PAGE_SIZE_;
-    * il puntatore al vnode è _NULL_, in quanto non è necessario mantenere tale informazione: essa è utilizzata, per le altre regioni, per caricare pagine in memoria dall'eseguibile, cosa che non avviene nel caso dello stack. Essa effettua anche l'allocazione della page table, per coerenza con il pattern seguito dalla configurazione _DUMBVM_, in cui la funzione di preparazione non viene invocata sul segmento di stack.
+    * il puntatore al vnode è _NULL_, in quanto non è necessario mantenere tale informazione: essa è utilizzata, nel caso delle altre regioni, per caricare pagine in memoria dall'eseguibile, cosa che non avviene nel caso dello stack. Essa effettua anche l'allocazione della page table, per coerenza con il pattern seguito nella configurazione _DUMBVM_, in cui la funzione di preparazione non viene invocata sul segmento di stack.
 - _seg_prepare_: utilizzata per allocare la page table relativa ai segmenti codice e dati, invocata una volta per ognuno dei segmenti, all'interno di _as_prepare_load_;
 - _seg_copy_: effettua la copia in profondità di un segmento dato in un segmento destinazione, invocata in _as_copy_; si avvale dell'analoga funzione del modulo _pt_ per la copia della page table.
 
@@ -210,7 +213,7 @@ La pagina richiesta è rappresentata da un indice all'interno dell'eseguibile, c
   tramite cui si determina quanti byte leggere dall'ELF file.
 - **ultima pagina**: la pagina richiesta è l'ultima dell'eseguibile, di conseguenza il caricamento avviene ad un indirizzo _page aligned_, mentre l'offset all'interno dell'ELF file viene calcolato a partire dal numero di pagine totali e dall'offset all'interno della prima pagina; ci sono due sottocasi possibili:
   * l'eseguibile termina nella pagina corrente;
-  * l'eseguibile termina in una pagina precedente, ma la pagina corrente è ancora occupata: ciò è dovuto al fatto che un file eseguibile ha una _filesize_ e una _memsize_ che potrebbero differire, con la prima minore o uguale alla seconda; in tal caso, l'area di memoria occupata (ma non valorizzata) deve essere azzerata,
+  * l'eseguibile termina in una pagina precedente, ma la pagina corrente è ancora occupata: ciò è dovuto al fatto che un file eseguibile ha una _filesize_ (rappresentata in _ps_t_ da _seg_size_bytes_) e una _memsize_(rappresentata in _ps_t_ da _seg_size_words_) che potrebbero differire, con la prima minore o uguale alla seconda; in tal caso, l'area di memoria occupata (ma non valorizzata) deve essere azzerata,
   
   e, in particolare, nel secondo caso non si leggono byte dall'ELF file.
 - **pagina intermedia**: il caricamento è analogo al caso precedente, a livello di offset nell'ELF file e di indirizzo fisico, ma si delineano tre sottocasi possibili, per quanto riguarda il numero di byte da leggere:
@@ -218,7 +221,7 @@ La pagina richiesta è rappresentata da un indice all'interno dell'eseguibile, c
   * l'eseguibile termina nella pagina corrente;
   * l'eseguibile occupa anche pagine successive,
   
-  i quali sono gestiti analogamente ai due casi precedenti.
+  i quali sono gestiti analogamente alle due situazioni precedenti.
 
 Dopo aver definito i tre parametri del caricamento, ovvero:
 - _load_paddr_: indirizzo fisico in memoria a cui caricare la pagina;
@@ -235,8 +238,8 @@ Vengono inoltre effettuati:
 
 ##### Operazioni di swapping
 Si utilizzano le funzioni:
-- _seg_swap_out_: segna come _swapped out_ la pagina corrispondente all'indirizzo virtuale passato, mediante l'analoga funzione del modulo _pt_; è invocata da _getppage_user_ all'interno del modulo _coremap_, il quale effettua fisicamente lo swap out del frame;
-- _seg_swap_in_: effettua le operazioni di swap in del frame corrispondente all'indirizzo virtuale fornito, supponendo vero che la pagina fosse in stato di _swapped_:
+- _seg_swap_out_: segna come _swapped out_ la pagina corrispondente all'indirizzo virtuale passato, mediante l'analoga funzione del modulo _pt_; è invocata da _getppage_user_ all'interno del modulo _coremap_, all'interno del quale si effettua fisicamente lo swap out del frame;
+- _seg_swap_in_: effettua le operazioni di swap in del frame corrispondente all'indirizzo virtuale fornito, supponendo che la pagina fosse in stato di _swapped_:
     * ottiene l'offset nello swapfile, a partire dal contenuto della page table alla entry opportuna;
     * effettua fisicamente l'operazione di swap in del frame, utilizzando l'indirizzo fisico fornito;
     * utilizza l'analoga funzione del modulo _pt_ per inserire la corrispondenza (indirizzo virtuale, indirizzo fisico) nella entry opportuna.
@@ -259,8 +262,8 @@ i cui campi hanno il significato seguente:
 - _page_buffer_: vettore di indirizzi fisici delle pagine rappresentate, allocato dinamicamente in fase di creazione della page table.
 
 Ogni entry della page table (ovvero ogni singolo elemento del buffer di pagine) può assumere i seguenti valori:
-- PT_EMPTY_ENTRY (0): poiché 0 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una entry vuota, ovvero una pagina non ancora caricata in memoria;
-- PT_SWAPPED_ENTRY (1): poiché 1 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una pagina di cui è stato effettuato swap out; dei 31 bit rimanenti, i meno significativi
+- _PT_EMPTY_ENTRY_ (0): poiché 0 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una entry vuota, ovvero una pagina non ancora caricata in memoria;
+- _PT_SWAPPED_ENTRY_ (1): poiché 1 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una pagina di cui è stato effettuato swap out; dei 31 bit rimanenti, i meno significativi
   vengono utilizzati per rappresentare l'offset della pagina nello swapfile (esso ha dimensione 9 MB, pertanto sarebbero sufficienti 24 bit);
 - altri valori: in questo caso è presente un indirizzo fisico valido per la pagina, ovvero essa è presente in memoria e non è avvenuto un page fault.
 
@@ -282,7 +285,7 @@ void pt_destroy(pt_t *pt);
 
 ##### Creazione e copia
 Si utilizzano le funzioni:
-- _pt_create_: alloca una nuova page table, definendo il numero di pagine e l'indirizzo virtuale di partenza, passati come parametri; il buffer utilizzato per la paginazione è allocato e azzerato, utilizzando la costante _PT_EMPTY_ENTRY_, in quanto inizialmente la page table è vuota;
+- _pt_create_: alloca una nuova page table, definendo il numero di pagine e l'indirizzo virtuale di partenza, passati come parametri; il buffer utilizzato per la paginazione è allocato e azzerato, utilizzando la costante _PT_EMPTY_ENTRY_, in quanto inizialmente la page table è (concettualmente) vuota;
 - _pt_copy_: copia il contenuto di una page table in una nuova, allocata all'interno della funzione; è utilizzato soltanto nel contesto della copia di un address space, invocato da _seg_copy_.
 
 ##### Cancellazione e distruzione
@@ -303,11 +306,11 @@ Si utilizzano le funzioni:
 ##### Operazioni di swapping
 Si utilizzano le funzioni:
 - _pt_swap_out_: segna come _swapped_ la entry corrispondente all'indirizzo virtuale fornito; utilizzando la costante _PT_SWAPPED_MASK_, memorizza anche l'offset nello swapfile della pagina a cui l'indirizzo virtuale appartiene;
-- _pt_swap_in_: duale della precedente, di fatto solo un wrapper per _pt_add_entry_, in quanto necessita della scrittura di un nuovo indirizzo fisico in corrispondenza della entry relativa alla pagina a cui appartiene l'indirizzo virtuale dato;
+- _pt_swap_in_: duale alla precedente, è di fatto solo un wrapper per _pt_add_entry_, in quanto necessita solo della scrittura di un nuovo indirizzo fisico in corrispondenza della entry relativa alla pagina a cui appartiene l'indirizzo virtuale dato;
 - _pt_get_swap_offset_: dato un indirizzo virtuale, ricava l'offset nello swapfile della pagina a cui esso appartiene, attraverso i 31 bit più significativi della entry corrispondente; è utilizzata durante l'operazione di swap in, invocata da _seg_swap_in_. 
 
 ### TLB
-Il modulo _vm_tlb.c_ (e relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, solo funzioni che svolgono funzione di wrapper (o poco più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
+Il modulo _vm_tlb.c_ (con il relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, ma solo funzioni che svolgono funzione di wrapper (o poco più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
 
 #### Implementazione
 Le funzioni implementate in questo modulo hanno i prototipi seguenti:
@@ -327,7 +330,7 @@ e svolgono i compiti seguenti:
 Le funzioni _tlb_read_ e _tlb_write_ sono implementate direttamente in linguaggio assembly e i loro prototipi sono definiti nel file _mips/tlb.h_.
 
 ### Statistiche
-Il modulo _vmstats.c_ (e relativo header file) contiene le strutture dati e le funzioni per la gestione delle statistiche relative al gestore della memoria.
+Il modulo _vmstats.c_ (con il relativo header file) contiene le strutture dati e le funzioni per la gestione delle statistiche relative al gestore della memoria.
 
 #### Strutture dati
 Le strutture dati sono definite in _vmstats.c_, per poter implementare _information hiding_, accedendovi soltanto con funzioni esposte all'esterno. Esse sono:
@@ -384,7 +387,7 @@ void vmstats_init(void);
 void vmstats_increment(unsigned int stat_index);
 void vmstats_show(void);
 ```
-Esse non svolgono compiti particolarmente complessi:
+Esse svolgono i compiti seguenti:
 - _vmstats_init_: inizializza il flag _vmstats_active_, dopo aver azzerato tutti i contatori in _vmstats_counts_; viene invocata al bootstrap del gestore della memoria virtuale;
 - _vmstats_increment_: incrementa di un'unità la statistica associata all'indice fornito come parametro, effettuando il conteggio;
 - _vmstats_show_: stampa, per ogni statistica, il valore di conteggio associato, mostrando eventuali messaggi di warning qualora le relazioni presenti tra le statistiche non fossero rispettate; viene invocata allo shutdown del gestore della memoria virtuale.
@@ -502,9 +505,9 @@ La funzione _as_prepare_load_ viene chiamata per preparare il caricamento del pr
 
 ## Test
 Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
-- _palin_: effettua un semplice check su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
+- _palin_: effettua un semplice controllo su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
 - _matmult_: effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando maggiormente la VM rispetto al precedente;
-- _sort_: ordina un array di grandi dimensioni usando l'algoritmo quick sort;
+- _sort_: ordina un array di grandi dimensioni usando l'algoritmo _quick sort_;
 - _zero_: verifica che le aree di memoria da azzerare in allocazione siano correttamente azzerate (si ignora il controllo effettuato sulla syscall sbrk());
 - _faulter_: verifica che l'accesso illegale ad un'area di memoria produca l'interruzione del programma;
 - _ctest_: effettua l'attraversamento di una linked list;
