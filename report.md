@@ -8,9 +8,9 @@ Il progetto è stato svolto nella variante denominata *C1.1*, con page table ind
 
 ## Composizione e suddivisione carichi di lavoro
 Il carico di lavoro è stato suddiviso in maniera abbastanza netta tra i componenti del gruppo, utilizzando una repository condivisa su Github:
-- Filippo Forte: address space e gestore della memoria, modifica a file già esistenti nella configurazione DUMBVM;
-- Michele Cazzola: segmenti, page table, statistiche e astrazione per il TLB, con wrapper per funzioni già esistenti;
-- Leone Fabio: coremap e gestione dello swapfile.
+- Filippo Forte (s322788): address space e gestore della memoria, modifica a file già esistenti in *DUMBVM*;
+- Michele Cazzola (s323270): segmenti, page table, statistiche e astrazione per il TLB, con wrapper per funzioni già esistenti;
+- Leone Fabio (s330500): coremap e gestione dello swapfile.
 
 Ogni componente del gruppo ha gestito in modo autonomo l'implementazione dei moduli, compresa la cura della documentazione e della propria parte di report, dopo aver concordato inizialmente l'interfaccia definita negli header file e le dipendenze tra essi. 
 
@@ -167,8 +167,9 @@ Le funzioni di questo modulo si occupano di svolgere operazioni a livello segmen
 ```C
 ps_t *seg_create(void);
 int seg_define(
-    ps_t *proc_seg, size_t seg_size_bytes, off_t file_offset, vaddr_t base_vaddr,
-    size_t num_pages, size_t seg_size_words, struct vnode *elf_vnode, char read, char write, char execute
+    ps_t *proc_seg, size_t seg_size_bytes, off_t file_offset,
+    vaddr_t base_vaddr, size_t num_pages, size_t seg_size_words,
+    struct vnode *elf_vnode, char read, char write, char execute
 );
 int seg_define_stack(ps_t *proc_seg, vaddr_t base_vaddr, size_t num_pages);
 int seg_prepare(ps_t *proc_seg);
@@ -272,6 +273,9 @@ Per poter ricavare in modo semplice l'indice della entry nel buffer, a partire d
 
 #### Implementazione
 Le funzioni di gestione della page table, come nel caso dei segmenti, si suddividono in diversi gruppi a seconda del compito che svolgono. I prototipi, definiti nel file _pt.h_, sono i seguenti:
+
+&nbsp;
+
 ```C
 pt_t *pt_create(unsigned long num_pages, vaddr_t base_address);
 int pt_copy(pt_t *src, pt_t **dest);
@@ -310,6 +314,9 @@ Si utilizzano le funzioni:
 - _pt_swap_out_: segna come _swapped_ la entry corrispondente all'indirizzo virtuale fornito; utilizzando la costante _PT_SWAPPED_MASK_, memorizza anche l'offset nello swapfile della pagina a cui l'indirizzo virtuale appartiene;
 - _pt_swap_in_: duale alla precedente, è di fatto solo un wrapper per _pt_add_entry_, in quanto necessita solo della scrittura di un nuovo indirizzo fisico in corrispondenza della entry relativa alla pagina a cui appartiene l'indirizzo virtuale dato;
 - _pt_get_swap_offset_: dato un indirizzo virtuale, ricava l'offset nello swapfile della pagina a cui esso appartiene, attraverso i 31 bit più significativi della entry corrispondente; è utilizzata durante l'operazione di swap in, invocata da _seg_swap_in_. 
+
+&nbsp;
+
 
 ### TLB
 Il modulo _vm_tlb.c_ (con il relativo header file) contiene un'astrazione per la gestione e l'interfaccia con il TLB: non vengono aggiunte strutture dati, ma solo funzioni che svolgono funzione di wrapper (o poco più) rispetto alle funzioni di lettura/scrittura già esistenti, oltre alla gestione della politica di replacement.
@@ -429,6 +436,12 @@ Questa struttura serve a rappresentare lo stato e le proprietà di una singola p
 
 #### Implementazione
 L'implementazione della coremap è fondamentale per la gestione della memoria all'interno del sistema operativo. I seguenti prototipi sono definiti per gestire l'inizializzazione, l'allocazione, la deallocazione e lo shutdown della coremap:
+
+&nbsp;
+
+&nbsp;
+
+
 ```C
 void coremap_init(void);            
 void coremap_shutdown(void);        
@@ -502,6 +515,8 @@ Tale modifica è valida solo quando l'opzione condizionale _OPT_PAGING_ è abili
 #### runprogram.c
 In questa implementazione, è stata aggiunta una modifica con un flag condizionale (utilizzando #if !OPT_PAGING) per determinare se il file rimane aperto o viene chiuso subito dopo il caricamento dell'eseguibile. Se l'opzione di paging (OPT_PAGING) è disabilitata, il file viene chiuso immediatamente. Altrimenti, il file rimane aperto per essere chiuso successivamente durante la distruzione dello spazio di indirizzamento chiamando la _as_destroy_. Questa modifica è stata introdotta per supportare il loading dinamico, che necessita dell'accesso continuo al file eseguibile durante l'esecuzione del programma.
 
+&nbsp;
+
 #### loadelf.c
 In questa implementazione, il codice è stato modificato per supportare il loading dinamico, che consente di caricare pagine dell'eseguibile in memoria solo quando è abilitata l'opzione condizionale OPT_PAGING. In tal caso, _as_define_region_ viene chiamata con parametri aggiuntivi che includono l'offset del file, la dimensione in memoria, la dimensione del file e il puntatore al file. Questo consente alla funzione di gestire le regioni di memoria in modo da supportare la paginazione a richiesta.
 
@@ -528,6 +543,21 @@ Per assicurarci che le funzioni basilari del kernel fossero già correttamente i
 - _km2_: come il precedente, ma in condizioni di stress.
 
 Di seguito si riportano le statistiche registrate per ogni test: ognuno è stato eseguito una volta sola, per poi effettuare lo shutdown del sistema.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
 
 | Nome test | TLB faults | TLB faults (free) | TLB faults (replace) | TLB invalidations | TLB reloads | Page faults (zeroed) | Page faults (disk) | Page faults (ELF) | Page faults (swapfile) | Swapfile writes |
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
