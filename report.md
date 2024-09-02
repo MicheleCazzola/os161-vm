@@ -71,7 +71,7 @@ Le funzioni _as_create_ e _as_destroy_ hanno il compito di allocare e liberare l
 
 Si utilizzano le funzioni:
 - _as_copy_: si occupa di creare un nuovo address space e copiarci quello ricevuto come parametro. Si basa sulla _seg_copy_
-- _as_activate_: questa funzione viene chiamata in _runprogram_ subito dopo aver creato e settato l'address space del processo. In particolare ha il compito di invalidare le entry del TLB e di inizializzare la vittima che eventualmente sarà sostituita nel TLB.
+- _as_activate_: questa funzione viene chiamata in _runprogram_ subito dopo aver creato e settato l'address space del processo. In particolare ha il compito di invalidare le entry del TLB.
 
 ##### Define
 
@@ -116,9 +116,9 @@ La funzione centrale di questo modulo è _vm_fault_, che si occupa della gestion
   
   2. **Recupero dell'Indirizzo Fisico**: Successivamente, recupera l'indirizzo fisico corrispondente all'indirizzo virtuale in cui si è verificato il fault utilizzando la funzione _seg_get_paddr_.
   
-  3. **Gestione della Pagina**: Se il fault è dovuto a una pagina non ancora assegnata o a una pagina precedentemente swap-out, viene allocata una nuova pagina. In base al tipo di fault, vengono quindi chiamate le funzioni di basso livello _seg_add_pt_entry_ (per aggiungere la nuova pagina alla tabella delle pagine) o _seg_swap_in_ (per caricare la pagina dallo swapfile).
+  3. **Gestione della Pagina**: Se il fault è dovuto a una pagina non ancora assegnata o a una pagina precedentemente _swapped out_, viene allocata una nuova pagina. In base al tipo di fault, vengono quindi chiamate le funzioni di basso livello _seg_add_pt_entry_ (per aggiungere la nuova pagina alla tabella delle pagine) o _seg_swap_in_ (per caricare la pagina dallo swapfile).
   
-  4. **Aggiornamento del TLB**: Infine, utilizzando un algoritmo round-robin, viene scelta la vittima da sostituire nel TLB e il TLB viene aggiornata con la nuova corrispondenza indirizzo fisico-virtuale.
+  4. **Aggiornamento del TLB**: Infine, utilizzando un algoritmo round-robin, viene scelta la vittima da sostituire nel TLB e il TLB viene aggiornato con la nuova corrispondenza indirizzo fisico-virtuale.
 
 ### Segmento
 Un processo ha uno spazio di indirizzamento costituito da diversi segmenti, che sono aree di memoria aventi una semantica comune; nel nostro caso, essi sono tre:
@@ -160,7 +160,7 @@ typedef enum {
 - _elf_vnode_: puntatore al vnode del file eseguibile a cui il segmento appartiene;
 - _page_table_: puntatore alla page table associata al segmento
 
-con il vincolo che _seg_size_bytes_ <= _seg_size_words_; inoltre, nel caso in cui la dimensione effettiva del segmento sia inferiore alla memoria che esso occupa, il residuo viene completamente azzerato.
+con il vincolo che _seg_size_bytes_ ≤ _seg_size_words_; inoltre, nel caso in cui la dimensione effettiva del segmento sia inferiore alla memoria che esso occupa, il residuo viene completamente azzerato.
 
 #### Implementazione
 Le funzioni di questo modulo si occupano di svolgere operazioni a livello segmento, eventualmente agendo da semplici wrapper per funzioni di livello inferiore. Esse sono utilizzate all'interno dei moduli _addrspace_ o _pagevm_; i prototipi sono i seguenti:
@@ -193,7 +193,9 @@ Si utilizzano le funzioni:
     * esso non esiste all'interno del file, pertanto offset e dimensione nel file sono campi azzerati;
     * il numero di pagine è definito dalla costante _PAGEVM_STACKPAGES_, pari a 18;
     * la dimensione occupata in memoria (parole intere) è legata direttamente al numero di pagine, secondo la costante _PAGE_SIZE_;
-    * il puntatore al vnode è _NULL_, in quanto non è necessario mantenere tale informazione: essa è utilizzata, nel caso delle altre regioni, per caricare pagine in memoria dall'eseguibile, cosa che non avviene nel caso dello stack. Essa effettua anche l'allocazione della page table, per coerenza con il pattern seguito nella configurazione _DUMBVM_, in cui la funzione di preparazione non viene invocata sul segmento di stack.
+    * il puntatore al vnode è _NULL_, in quanto non è necessario mantenere tale informazione: essa è utilizzata, nel caso delle altre regioni, per caricare pagine in memoria dall'eseguibile, cosa che non avviene nel caso dello stack.
+    
+    Essa effettua anche l'allocazione della page table, per coerenza con il pattern seguito nella configurazione _DUMBVM_, in cui la funzione di preparazione non viene invocata sul segmento di stack.
 - _seg_prepare_: utilizzata per allocare la page table relativa ai segmenti codice e dati, invocata una volta per ognuno dei segmenti, all'interno di _as_prepare_load_;
 - _seg_copy_: effettua la copia in profondità di un segmento dato in un segmento destinazione, invocata in _as_copy_; si avvale dell'analoga funzione del modulo _pt_ per la copia della page table.
 
@@ -213,7 +215,7 @@ La pagina richiesta è rappresentata da un indice all'interno dell'eseguibile, c
   tramite cui si determina quanti byte leggere dall'ELF file.
 - **ultima pagina**: la pagina richiesta è l'ultima dell'eseguibile, di conseguenza il caricamento avviene ad un indirizzo _page aligned_, mentre l'offset all'interno dell'ELF file viene calcolato a partire dal numero di pagine totali e dall'offset all'interno della prima pagina; ci sono due sottocasi possibili:
   * l'eseguibile termina nella pagina corrente;
-  * l'eseguibile termina in una pagina precedente, ma la pagina corrente è ancora occupata: ciò è dovuto al fatto che un file eseguibile ha una _filesize_ (rappresentata in _ps_t_ da _seg_size_bytes_) e una _memsize_(rappresentata in _ps_t_ da _seg_size_words_) che potrebbero differire, con la prima minore o uguale alla seconda; in tal caso, l'area di memoria occupata (ma non valorizzata) deve essere azzerata,
+  * l'eseguibile termina in una pagina precedente, ma la pagina corrente è ancora occupata: ciò è dovuto al fatto che un file eseguibile ha una _filesize_ (rappresentata in _ps_t_ da _seg_size_bytes_) e una _memsize_ (rappresentata in _ps_t_ da _seg_size_words_) che potrebbero differire, con la prima minore o uguale alla seconda; in tal caso, l'area di memoria occupata (ma non valorizzata) deve essere azzerata,
   
   e, in particolare, nel secondo caso non si leggono byte dall'ELF file.
 - **pagina intermedia**: il caricamento è analogo al caso precedente, a livello di offset nell'ELF file e di indirizzo fisico, ma si delineano tre sottocasi possibili, per quanto riguarda il numero di byte da leggere:
@@ -226,7 +228,7 @@ La pagina richiesta è rappresentata da un indice all'interno dell'eseguibile, c
 Dopo aver definito i tre parametri del caricamento, ovvero:
 - _load_paddr_: indirizzo fisico in memoria a cui caricare la pagina;
 - _load_len_bytes_: numero di byte da leggere;
-- _elf_offset_: offset della pagina all'interno del file eseguibile,
+- _elf_offset_: offset di inizio lettura all'interno del file eseguibile,
 
 si azzera la regione di memoria deputata ad ospitare la pagina, per poi effettuare la lettura, seguendo il pattern dato dalle operazioni:
 - _uio_kinit_ per effettuare il setup delle strutture dati _uio_ e _iovec_;
@@ -263,8 +265,7 @@ i cui campi hanno il significato seguente:
 
 Ogni entry della page table (ovvero ogni singolo elemento del buffer di pagine) può assumere i seguenti valori:
 - _PT_EMPTY_ENTRY_ (0): poiché 0 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una entry vuota, ovvero una pagina non ancora caricata in memoria;
-- _PT_SWAPPED_ENTRY_ (1): poiché 1 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una pagina di cui è stato effettuato swap out; dei 31 bit rimanenti, i meno significativi
-  vengono utilizzati per rappresentare l'offset della pagina nello swapfile (esso ha dimensione 9 MB, pertanto sarebbero sufficienti 24 bit);
+- _PT_SWAPPED_ENTRY_ (1) + swap offset: poiché 1 non è un indirizzo fisico valido (è occupato dal kernel), viene utilizzato per indicare una pagina di cui è stato effettuato swap out; dei 31 bit rimanenti, i meno significativi vengono utilizzati per rappresentare l'offset della pagina nello swapfile (esso ha dimensione 9 MB, pertanto sarebbero sufficienti 24 bit); il contenuto di queste entries non interferisce con gli indirizzi fisici validi in quanto e la CPU lavora con indirizzi multipli di 4;
 - altri valori: in questo caso è presente un indirizzo fisico valido per la pagina, ovvero essa è presente in memoria e non è avvenuto un page fault.
 
 Per poter ricavare in modo semplice l'indice della entry nel buffer, a partire da un indirizzo virtuale, il buffer è stato realizzato in modo che ogni entry occupi un'intera pagina: ciò occupa più memoria, ma semplifica notevolmente lo svolgimento di quasi tutte le operazioni effettuate sulla page table, in quanto ricavare l'indice a partire da un indirizzo virtuale è necessario in molte di esse.
@@ -286,13 +287,14 @@ void pt_destroy(pt_t *pt);
 ##### Creazione e copia
 Si utilizzano le funzioni:
 - _pt_create_: alloca una nuova page table, definendo il numero di pagine e l'indirizzo virtuale di partenza, passati come parametri; il buffer utilizzato per la paginazione è allocato e azzerato, utilizzando la costante _PT_EMPTY_ENTRY_, in quanto inizialmente la page table è (concettualmente) vuota;
-- _pt_copy_: copia il contenuto di una page table in una nuova, allocata all'interno della funzione; è utilizzato soltanto nel contesto della copia di un address space, invocato da _seg_copy_.
+- _pt_copy_: copia il contenuto di una page table in una nuova, allocata all'interno della funzione; è utilizzato soltanto nel contesto della copia di un address space, invocata da _seg_copy_.
 
 ##### Cancellazione e distruzione
 Si utilizzano le funzioni:
 - _pt_clear_content_: effettua i side effects della cancellazione del contenuto della page table su swapfile e memoria fisica:
   * se una entry è _swapped_, la elimina dallo swapfile;
   * se una entry è in memoria, libera la memoria fisica,
+  
   ed è utilizzata in fase di distruzione di un address space, invocata da _seg_destroy_;
 - _pt_destroy_: rilascia le risorse di memoria detenute dalla page table, inclusi i buffer contenuti all'interno; come la precedente, è utilizzata in fase di distruzione di un address space ed è invocata da _seg_destroy_.
 
@@ -324,7 +326,7 @@ void vm_tlb_write(vaddr_t vaddr, paddr_t paddr, unsigned char dirty);
 e svolgono i compiti seguenti:
 - _vm_tlb_invalidate_entries_: invalida tutte le entries del TLB, utilizzando le apposite maschere definite in _mips/tlb.h_; è invocata da _as_activate_, ovvero all'inizio del processo e ad ogni context switching;
 - _vm_tlb_reset_current_victim_: resetta a 0 la posizione della vittima dell'algoritmo round-robin, usato per gestire il replacement; è invocata da _vm_bootstrap_, durante il bootstrap del sistema operativo;
-- _vm_tlb_peek_victim_: effettua una lettura nel TLB (mediante la funzione _tlb_read_), della entry corrispondente alla vittima corrente; è utilizzata per verificare che la vittima corrente sia una entry valida o meno, per fini statistici;
+- _vm_tlb_peek_victim_: effettua una lettura nel TLB (mediante la funzione _tlb_read_), della entry corrispondente alla vittima corrente; è utilizzata per verificare che la vittima corrente sia una entry valida o meno, per fini statistici, in seguito a TLB miss;
 - _vm_tlb_write_: scrive la coppia (_vaddr_, _paddr_), all'interno della entry corrispondente alla vittima corrente (che a sua volta può essere una entry valida o meno), utilizzando la funzione _tlb_write_; la posizione della vittima è ricavata attraverso la funzione _vm_tlb_get_victim_round_robin_, che incrementa di un'unità (in modo circolare) l'indice della vittima, per poi ritornare quella corrente, eseguendo di fatto l'algoritmo di replacement; è invocata in seguito ad una TLB miss, in assenza di altri errori. Inoltre, se l'indirizzo virtuale appartiene ad una pagina con permesso di scrittura, viene settato il _dirty bit_, il quale (nel TLB di os161) indica se la entry corrispondente contiene l'indirizzo di una pagina _writable_.
 
 Le funzioni _tlb_read_ e _tlb_write_ sono implementate direttamente in linguaggio assembly e i loro prototipi sono definiti nel file _mips/tlb.h_.
@@ -414,7 +416,7 @@ Questa struttura serve a rappresentare lo stato e le proprietà di una singola p
 - _entry_type_: indica lo stato attuale della pagina, utilizzando la enum _coremap_entry_state_. Può assumere lo stato:
   * COREMAP_BUSY_KERNEL: la pagina è allocata per l'uso del kernel.
   * COREMAP_BUSY_USER: la pagina è allocata per l'uso utente.
-  * COREMAP_UNTRACKED: la pagina non è ancora gestita dal Coremap.
+  * COREMAP_UNTRACKED: la pagina non è ancora gestita dalla coremap.
   * COREMAP_FREED: la pagina è stata liberata e può essere riutilizzata.
 
 - _allocation_size_: specifica la dimensione dell'allocazione, ovvero il numero di pagine contigue allocate. Questo è particolarmente rilevante per le allocazioni del kernel, che possono richiedere blocchi di pagine contigue.
@@ -424,6 +426,7 @@ Questa struttura serve a rappresentare lo stato e le proprietà di una singola p
 - _virtual_address_:  memorizza l'indirizzo virtuale associato alla pagina. È particolarmente importante per le pagine utente, dove il sistema deve mappare l'indirizzo virtuale dell'utente alla pagina fisica corrispondente.
 
 - _address_space_:  punta allo spazio di indirizzamento (address space) a cui è allocata la pagina. È utilizzato per identificare quale processo utente sta utilizzando la pagina.
+
 #### Implementazione
 L'implementazione della coremap è fondamentale per la gestione della memoria all'interno del sistema operativo. I seguenti prototipi sono definiti per gestire l'inizializzazione, l'allocazione, la deallocazione e lo shutdown della coremap:
 ```C
@@ -450,14 +453,14 @@ void free_user_page(paddr_t paddr);
 ##### Allocazione e Deallocazione pagine - Processi utente
 
 - _alloc_user_page(vaddr_t vaddr)_: funzione che gestisce l'allocazione delle pagine per i processi utente. Cerca prima di utilizzare pagine libere e, se necessario, sostituisce una pagina esistente usando una strategia di sostituzione FIFO. Se una pagina viene sostituita, la funzione interagisce con lo swapfile per gestire il trasferimento della pagina vittima al disco. Inoltre è fondamentale, dal punto di vista implementativo, identificare il segmento che contiene la pagina selezionata come vittima. Questo passaggio è essenziale per poter marcare come "swapped" l'entry della corretta page table corrispondente all'indirizzo virtuale e per salvare l'offset dello swapfile dove la pagina è stata memorizzata. La ricerca del segmento viene effettuata tramite la funzione 
-`ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)` definita in addspace.h.
+`ps_t *as_find_segment_coarse(addrspace_t *as, vaddr_t vaddr)` definita in _addrspace.h_.
 
-- _free_user_page(paddr_t paddr)_: funzione che libera le pagine allocate ai processi utente, rimuovendo la pagina dalla coda di allocazione e segnandola come COREMAP_FREED nella cremap.
+- _free_user_page(paddr_t paddr)_: funzione che libera le pagine allocate ai processi utente, rimuovendo la pagina dalla coda di allocazione e segnandola come COREMAP_FREED nella coremap.
 
 ### Swapfile
 Lo swapfile è un componente essenziale per estendere la capacità di memoria fisica del sistema, permettendo al sistema operativo di gestire più processi di quanti possano essere contenuti nella memoria fisica disponibile. Quando la memoria RAM è piena, lo swapfile permette di spostare temporaneamente le pagine su disco, liberando memoria per altri processi.
 #### Implementazione
-L'implementazione dello swapfile prevede diverse funzioni per la gestione dello spazio di swap e il trasferimento delle pagine tra memoria fisica e disco. Lo swapfile è limitato a 9MB (dimensione definita in swapfile.h) e se a tempo di esecuzione viene richiesto uno spazio di swap maggiore, il sistema panica indicando la violazione. I prototipi delle funzioni principali sono:
+L'implementazione dello swapfile prevede diverse funzioni per la gestione dello spazio di swap e il trasferimento delle pagine tra memoria fisica e disco. Lo swapfile è limitato a 9 MB (dimensione definita in _swapfile.h_) e se a tempo di esecuzione viene richiesto uno spazio di swap maggiore, il sistema panica indicando la violazione. I prototipi delle funzioni principali sono:
 ```C
 int swap_init(void);
 int swap_out(paddr_t page_paddr, off_t *ret_offset);
@@ -483,32 +486,36 @@ void swap_shutdown(void);
 - _swap_shutdown()_: funzione che chiude e libera le risorse associate allo swapfile quando il sistema non ne ha più bisogno. Chiude il file di swap e rilascia la memoria utilizzata dalla bitmap.
 
 ### Modifiche ad altri file
-Di seguito si riportano le modifiche (minoritarie, ma necessarie) effettuate ad altri file del kernel di os161, già esistenti nella versione di partenza
+Di seguito si riportano le modifiche (minoritarie, ma necessarie) effettuate ad altri file del kernel di os161, già esistenti nella versione di partenza.
 
 #### trap.c
 All'interno della funzione _kill_curthread_, in caso di:
 - TLB miss in read/write;
-- TLB write su segmento di memoria read-only;
+- TLB hit in caso di richiesta di write (memory store) su segmento di memoria read-only;
 
 viene eseguita una stampa di errore, seguita da una chiamata alla system call _sys__exit_, per effettuare la terminazione _graceful_ del processo, liberando le risorse allocate; ciò avviene di solito in seguito alla restituzione di un valore non nullo da parte della funzione _vm_fault_.
 
 In questo modo, è possibile evitare un _panic_ del sistema operativo, qualora si verifichi un errore di questo tipo, permettendo sia l'esecuzione di ulteriori test (o la ripetizione dello stesso); inoltre, ciò permette di terminare correttamente il sistema operativo (con il comando _q_), tracciando le statistiche per il test _faulter_.
 
+Tale modifica è valida solo quando l'opzione condizionale _OPT_PAGING_ è abilitata.
+
 #### runprogram.c
-In questa implementazione, è stata aggiunta una modifica con un flag condizionale (utilizzando #if !OPT_PAGING) per determinare se il file rimane aperto o viene chiuso subito dopo il caricamento dell'eseguibile. Se l'opzione di paging (OPT_PAGING) è disabilitata, il file viene chiuso immediatamente. Altrimenti, il file rimane aperto per essere chiuso successivamente durante la distruzione dello spazio di indirizzamento chiamando la _as_destroy_. Questa modifica è stata introdotta per supportare la paginazione a richiesta, che può necessitare dell'accesso continuo al file eseguibile durante l'esecuzione del programma.
+In questa implementazione, è stata aggiunta una modifica con un flag condizionale (utilizzando #if !OPT_PAGING) per determinare se il file rimane aperto o viene chiuso subito dopo il caricamento dell'eseguibile. Se l'opzione di paging (OPT_PAGING) è disabilitata, il file viene chiuso immediatamente. Altrimenti, il file rimane aperto per essere chiuso successivamente durante la distruzione dello spazio di indirizzamento chiamando la _as_destroy_. Questa modifica è stata introdotta per supportare il loading dinamico, che necessita dell'accesso continuo al file eseguibile durante l'esecuzione del programma.
 
 #### loadelf.c
-In questa implementazione, il codice è stato modificato per supportare la paginazione a richiesta, che consente di caricare segmenti dell'eseguibile in memoria solo quando necessario.
-È stata introdotta l'opzione condizionale OPT_PAGING, che controlla se il caricamento completo del programma viene eseguito immediatamente o se viene abilitata la paginazione a richiesta.
-Quando OPT_PAGING è abilitato, _as_define_region_ viene chiamata con parametri aggiuntivi che includono l'offset del file, la dimensione in memoria, la dimensione del file e il puntatore al file. Questo consente alla funzione di gestire le regioni di memoria in modo da supportare la paginazione a richiesta.
-La funzione _as_prepare_load_ viene chiamata per preparare il caricamento del programma nello spazio di indirizzamento. Tuttavia, se la paginazione a richiesta è attiva, il caricamento effettivo dei segmenti _load_segment_ non viene eseguito in questa fase.
+In questa implementazione, il codice è stato modificato per supportare il loading dinamico, che consente di caricare pagine dell'eseguibile in memoria solo quando è abilitata l'opzione condizionale OPT_PAGING. In tal caso, _as_define_region_ viene chiamata con parametri aggiuntivi che includono l'offset del file, la dimensione in memoria, la dimensione del file e il puntatore al file. Questo consente alla funzione di gestire le regioni di memoria in modo da supportare la paginazione a richiesta.
+
+La funzione _as_prepare_load_ viene chiamata per preparare il caricamento del programma nello spazio di indirizzamento. Tuttavia, se la paginazione a richiesta è attiva, il caricamento effettivo delle pagine dei segmenti in _load_segment_ non viene eseguito in questa fase.
+
+#### main.c
+All'interno della funzione _boot_ è stata inserita la chiamata a _vm_shutdown_, per effettuare la terminazione del gestore della memoria virtuale permettendo, tra l'altro, la visualizzazione delle statistiche sul terminale; tale invocazione avviene solo quando l'opzione condizionale _OPT_PAGING_ è abilitata.
 
 ## Test
-Per testare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
+Per verificare il corretto funzionamento del sistema, abbiamo utilizzato i test già presenti all'interno di os161, scegliendo quelli adatti per ciò che è stato sviluppato:
 - _palin_: effettua un semplice controllo su una stringa di 8000 caratteri, senza stressare la VM; non provoca replacements del TLB né swap in di pagine;
 - _matmult_: effettua un prodotto matriciale (controllando il risultato ottenuto con quello atteso), occupando molto spazio in memoria e stressando maggiormente la VM rispetto al precedente;
 - _sort_: ordina un array di grandi dimensioni usando l'algoritmo _quick sort_;
-- _zero_: verifica che le aree di memoria da azzerare in allocazione siano correttamente azzerate (si ignora il controllo effettuato sulla syscall sbrk());
+- _zero_: verifica che le aree di memoria da azzerare in allocazione siano correttamente azzerate (si ignora il controllo effettuato sulla syscall _sbrk_);
 - _faulter_: verifica che l'accesso illegale ad un'area di memoria produca l'interruzione del programma;
 - _ctest_: effettua l'attraversamento di una linked list;
 - _huge_: alloca e manipola un array di grandi dimensioni.
